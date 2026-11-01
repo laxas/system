@@ -1,0 +1,22 @@
+# Project registry, per host. Paths are keys (use ~ for the home directory).
+#
+# Statuses:
+#   active   developed or deployed; dependencies kept fresh and audited
+#   grey     not developed, but may still run or be revived; audited
+#   idea     old idea, not worth running; should have no .venv
+#   archive  to be archived as tar.gz (system projects --archive)
+#
+# Projects not listed here show up as "unclassified". They are audited as long as they have a .venv.
+# Audits are keyed to the classification, not to the .venv, so deleting a venv does not end the audit.
+
+[hosts.ubuntu]
+roots = ["/srv/python", "~/python", "/srv/insyrt"]
+archive_dir = "~/archive"        # keep this outside Nextcloud
+# lock_max_age_days = { active = 90, grey = 180 }
+
+[hosts.ubuntu.projects]
+"/srv/insyrt/accounting" = "active"
+"/srv/python/helferkreis" = "active"
+"/srv/insyrt/homepage" = "active"
+"~/python/seniorenbeirat" = "archive"
+"~/python/recorder" = "archive"

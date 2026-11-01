@@ -24,6 +24,13 @@ Shows installed PostgreSQL server versions, the clusters from `pg_lsclusters` wi
 
 `pyversions` scans project roots (default `/srv/python` and `~/python`, symlinks followed) and reports each project's `.python-version`, `requires-python` and the Python its `.venv` really runs, against the latest version uv knows for `--target`. It flags wrong pins, venvs that are behind or broken, and venvs a running process uses. `space` lists the biggest reclaimable items (uv cache and Pythons, project venvs, `~/.cache` entries, trash, disabled snap revisions, apt cache, journal, docker). Both are read-only and save to `reports/<hostname>/`.
 
+    make projects        # classification, stale lockfiles, backup risks
+    make audit           # same plus uv audit (needs network)
+    .venv/bin/system projects --archive   # tar.gz the projects marked "archive" (originals kept)
+    .venv/bin/system projects --apply     # remove the .venv of "idea"/"archive" projects
+
+`projects` reads `projects.toml` (one section per host, keyed by project path) with the statuses `active`, `grey`, `idea` and `archive`. Audits follow the classification, not the `.venv`: `active` and `grey` projects are always audited, unclassified ones when they have a `.venv`. Archives go to the host's `archive_dir` (default `~/archive`, keep it outside Nextcloud) as `.tar.gz` with a `.sha256`, including `.git` but not venvs. Screening only reports; fixing audit findings (upgrading dependencies) is done per project in a separate session.
+
 ## Claude Code skill
 
 `.claude/skills/systemcheck/` is a Claude Code skill: ask for a "system check" and it runs `collect`, `pyversions`, `space` (and `postgres` where installed), diffs the reports against the last commit and summarizes what needs attention. It is read-only; it never cleans up or deletes anything on its own.
