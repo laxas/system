@@ -13,7 +13,7 @@ Collects basic system info (OS, hardware, CPU, memory, disks, network, failed se
 
 `make cleanup` is a shortcut for the `--apply` line. Run `cleanup` through `.venv/bin/system`, not `uv run system`: `uv run` holds the uv cache lock while it runs, so the `uv cache prune` step cannot get the lock. The script detects this and skips the uv step with a hint.
 
-Frees disk space by running `uv cache prune` (drops cache entries nothing references any more), deleting rotated logs in `/var/log` older than `--days` (default 30), and vacuuming the systemd journal to the same age. Log and journal deletion use `sudo`. Use `--skip-uv` or `--skip-logs` to leave a part alone.
+Frees disk space by running `uv cache prune` (drops cache entries nothing references any more), deleting rotated logs in `/var/log` older than `--days` (default 30), vacuuming the systemd journal to the same age, and removing old (disabled) snap revisions, which snap keeps for rollback. Log, journal and snap steps use `sudo`. Use `--skip-uv`, `--skip-snap` or `--skip-logs` to leave a part alone.
 
     make postgres        # or: uv run system postgres
 

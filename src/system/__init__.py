@@ -30,6 +30,7 @@ def main() -> None:
     clean.add_argument("--apply", action="store_true", help="actually delete; default is a dry run")
     clean.add_argument("--days", type=int, default=30, help="keep logs and journal newer than this (default: 30)")
     clean.add_argument("--skip-uv", action="store_true", help="leave the uv cache alone")
+    clean.add_argument("--skip-snap", action="store_true", help="leave old snap revisions alone")
     clean.add_argument("--skip-logs", action="store_true", help="leave /var/log and the journal alone")
 
     args = parser.parse_args()
@@ -58,4 +59,4 @@ def main() -> None:
         space.show(info)
         print(f"\nSaved to {save(info, 'space.json')}")
     else:
-        cleanup(days=args.days, apply=args.apply, uv=not args.skip_uv, logs=not args.skip_logs)
+        cleanup(days=args.days, apply=args.apply, uv=not args.skip_uv, logs=not args.skip_logs, snap=not args.skip_snap)

@@ -9,11 +9,11 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
+from system.cleanup import disabled_snaps
 from system.pyversions import C_ENV, DEFAULT_ROOTS, find_projects
 from system.util import human
 
 MIN_CACHE_ENTRY = 100 * 2**20  # only list ~/.cache entries above 100 MiB
-SNAP_DIR = Path("/var/lib/snapd/snaps")
 
 
 def dir_size(path: Path) -> int | None:
@@ -69,20 +69,10 @@ def cache_items() -> list[dict]:
 
 
 def snap_items() -> list[dict]:
-    if shutil.which("snap") is None:
+    snaps = disabled_snaps()
+    if not snaps:
         return []
-    out = subprocess.run(["snap", "list", "--all"], capture_output=True, text=True, env=C_ENV).stdout
-    total = count = 0
-    for line in out.splitlines()[1:]:
-        fields = line.split()
-        if len(fields) >= 6 and "disabled" in fields[-1]:
-            snap = SNAP_DIR / f"{fields[0]}_{fields[2]}.snap"
-            if snap.exists():
-                total += snap.stat().st_size
-                count += 1
-    if not count:
-        return []
-    return [item("snap", f"{count} disabled snap revisions", total, "sudo snap remove <name> --revision=<rev>")]
+    return [item("snap", f"{len(snaps)} disabled snap revisions", sum(size for _, _, size in snaps), "system cleanup (removes them via sudo)")]
 
 
 def system_items() -> list[dict]:

@@ -1,4 +1,4 @@
-"""Free disk space: prune the uv cache, delete old rotated logs, vacuum the journal.
+"""Free disk space: prune the uv cache, remove old snap revisions, delete old rotated logs, vacuum the journal.
 
 Everything is a dry run unless apply=True.
 """
@@ -18,6 +18,9 @@ LOG_DIR = Path("/var/log")
 ROTATED = re.compile(r"\.(gz|xz|bz2|zst|old|\d+)$")
 # Never touched here; journald manages it (see vacuum_journal).
 SKIP_DIRS = {"journal"}
+SNAP_DIR = Path("/var/lib/snapd/snaps")
+# snap ignores LC_ALL alone: without LANG=C it prints the localized "deaktiviert" for "disabled".
+C_ENV = {**os.environ, "LC_ALL": "C", "LANG": "C"}
 
 
 def privileged(*cmd: str) -> list[str]:
@@ -59,6 +62,34 @@ def clean_uv_cache(apply: bool) -> None:
     after = uv_cache_size()
     if before is not None and after is not None:
         print(f"freed: {human(before - after)} (now {human(after)})")
+
+
+def disabled_snaps() -> list[tuple[str, str, int]]:
+    """(name, revision, size in bytes) of disabled snap revisions, i.e. old copies kept for rollback."""
+    if shutil.which("snap") is None:
+        return []
+    out = subprocess.run(["snap", "list", "--all"], capture_output=True, text=True, env=C_ENV).stdout
+    found = []
+    for line in out.splitlines()[1:]:
+        fields = line.split()
+        if len(fields) >= 6 and "disabled" in fields[-1]:
+            path = SNAP_DIR / f"{fields[0]}_{fields[2]}.snap"
+            found.append((fields[0], fields[2], path.stat().st_size if path.exists() else 0))
+    return found
+
+
+def clean_snaps(apply: bool) -> None:
+    print("== old (disabled) snap revisions")
+    snaps = disabled_snaps()
+    for name, revision, size in snaps:
+        print(f"  {human(size):>10}  {name} rev {revision}")
+    print(f"{len(snaps)} revisions, {human(sum(size for _, _, size in snaps))}")
+    if not apply:
+        return
+    for name, revision, _ in snaps:
+        result = subprocess.run(privileged("snap", "remove", name, f"--revision={revision}"))
+        if result.returncode != 0:
+            print(f"failed to remove {name} rev {revision}, continuing")
 
 
 def old_rotated_logs(days: int) -> list[tuple[Path, int]]:
@@ -105,12 +136,15 @@ def vacuum_journal(days: int, apply: bool) -> None:
     subprocess.run(privileged("journalctl", f"--vacuum-time={days}d"), check=True)
 
 
-def cleanup(days: int = 30, apply: bool = False, uv: bool = True, logs: bool = True) -> None:
+def cleanup(days: int = 30, apply: bool = False, uv: bool = True, logs: bool = True, snap: bool = True) -> None:
     sys.stdout.reconfigure(line_buffering=True)  # keep our output ordered with subprocess output
     if not apply:
         print("DRY RUN - nothing is deleted. Re-run with --apply to clean up.\n")
     if uv:
         clean_uv_cache(apply)
+        print()
+    if snap:
+        clean_snaps(apply)
         print()
     if logs:
         clean_logs(days, apply)
