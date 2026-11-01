@@ -179,7 +179,7 @@ def audit_project(project: Path) -> dict:
 
 def create_archive(project: Path, archive_dir: Path) -> Path:
     """tar.gz of the project (including .git, excluding venvs/caches); verified before it is kept."""
-    archive_dir.mkdir(parents=True, exist_ok=True)
+    archive_dir.mkdir(mode=0o700, parents=True, exist_ok=True)  # archives can hold credentials: owner only
     dest = archive_dir / f"{archive_slug(project)}-{datetime.now():%Y%m%d}.tar.gz"
     part = dest.with_name(dest.name + ".part")
     try:
@@ -193,9 +193,12 @@ def create_archive(project: Path, archive_dir: Path) -> Path:
     except (OSError, tarfile.TarError):
         part.unlink(missing_ok=True)
         raise
+    part.chmod(0o600)
     part.rename(dest)
     digest = hashlib.sha256(dest.read_bytes()).hexdigest()
-    dest.with_name(dest.name + ".sha256").write_text(f"{digest}  {dest.name}\n")
+    checksum = dest.with_name(dest.name + ".sha256")
+    checksum.write_text(f"{digest}  {dest.name}\n")
+    checksum.chmod(0o600)
     return dest
 
 
