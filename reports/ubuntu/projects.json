@@ -1,6 +1,6 @@
 {
   "hostname": "ubuntu",
-  "collected_at": "2026-11-01T11:55:06+01:00",
+  "collected_at": "2026-11-01T12:07:23+01:00",
   "audited": true,
   "archive_dir": "/home/croessmann/archive",
   "registered_but_missing": [],
@@ -2272,7 +2272,7 @@
       "commit_age_days": 0,
       "lock_file": "uv.lock",
       "lock_age_days": 0,
-      "uncommitted": 7,
+      "uncommitted": 4,
       "has_remote": false,
       "unpushed": 0,
       "venv_bytes": 32161,
@@ -2280,7 +2280,7 @@
       "running_pids": [],
       "notes": [
         "no remote: commits exist only here",
-        "7 uncommitted files"
+        "4 uncommitted files"
       ],
       "audit": {
         "status": "clean",
@@ -2295,7 +2295,7 @@
       "has_commits": true,
       "commit_age_days": 1583,
       "lock_file": "poetry.lock",
-      "lock_age_days": 1637,
+      "lock_age_days": 1638,
       "uncommitted": 27,
       "has_remote": true,
       "unpushed": 0,

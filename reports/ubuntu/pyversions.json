@@ -1,6 +1,6 @@
 {
   "hostname": "ubuntu",
-  "collected_at": "2026-11-01T11:39:15+01:00",
+  "collected_at": "2026-11-01T12:06:24+01:00",
   "target": "3.14",
   "latest_available": "3.14.10",
   "interpreters": [

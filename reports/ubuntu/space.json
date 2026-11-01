@@ -1,13 +1,13 @@
 {
   "hostname": "ubuntu",
-  "collected_at": "2026-11-01T11:39:29+01:00",
+  "collected_at": "2026-11-01T12:06:27+01:00",
   "root_total_bytes": 104557666304,
-  "root_free_bytes": 23846834176,
+  "root_free_bytes": 23230861312,
   "items": [
     {
       "category": "uv",
       "label": "uv cache /home/croessmann/.cache/uv",
-      "size_bytes": 11059284995,
+      "size_bytes": 11079829580,
       "hint": "uv cache clean (re-downloads packages on next sync)"
     },
     {

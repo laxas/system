@@ -1,6 +1,6 @@
 {
   "hostname": "ubuntu",
-  "collected_at": "2026-11-01T11:40:24+01:00",
+  "collected_at": "2026-11-01T12:06:23+01:00",
   "virtualization": "vmware",
   "hardware": {
     "vendor": "VMware, Inc.",
@@ -15,21 +15,21 @@
     "kernel_version": "#38-Ubuntu SMP PREEMPT_DYNAMIC Fri Sep  4 09:10:14 UTC 2026",
     "architecture": "x86_64"
   },
-  "uptime": "up 1 hour, 3 minutes",
+  "uptime": "up 1 hour, 29 minutes",
   "cpu": {
     "model": "AMD Ryzen 7 5700U with Radeon Graphics",
     "logical_cpus": 4,
     "load_avg": [
-      1.11767578125,
-      2.00146484375,
-      1.7939453125
+      0.45068359375,
+      0.66455078125,
+      0.94970703125
     ]
   },
   "memory": {
     "total_mib": 9742,
-    "available_mib": 6330,
+    "available_mib": 6342,
     "swap_total_mib": 2047,
-    "swap_free_mib": 1267
+    "swap_free_mib": 1101
   },
   "disk": {
     "block_devices": [
@@ -86,9 +86,9 @@
         "mount": "/",
         "device": "/dev/sda5",
         "total_gib": 97.4,
-        "used_gib": 70.2,
-        "avail_gib": 22.2,
-        "used_percent": 76.0
+        "used_gib": 70.8,
+        "avail_gib": 21.6,
+        "used_percent": 76.6
       },
       {
         "mount": "/boot/efi",
