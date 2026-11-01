@@ -1,6 +1,6 @@
 {
   "hostname": "ubuntu",
-  "collected_at": "2026-11-01T10:55:34+01:00",
+  "collected_at": "2026-11-01T11:01:05+01:00",
   "virtualization": "vmware",
   "hardware": {
     "vendor": "VMware, Inc.",
@@ -15,19 +15,19 @@
     "kernel_version": "#38-Ubuntu SMP PREEMPT_DYNAMIC Fri Sep  4 09:10:14 UTC 2026",
     "architecture": "x86_64"
   },
-  "uptime": "up 18 minutes",
+  "uptime": "up 24 minutes",
   "cpu": {
     "model": "AMD Ryzen 7 5700U with Radeon Graphics",
     "logical_cpus": 4,
     "load_avg": [
-      0.81640625,
-      2.36083984375,
-      2.08154296875
+      0.6474609375,
+      1.2109375,
+      1.6328125
     ]
   },
   "memory": {
     "total_mib": 9742,
-    "available_mib": 5889,
+    "available_mib": 5857,
     "swap_total_mib": 2047,
     "swap_free_mib": 2047
   },
@@ -140,10 +140,8 @@
     "dns": "Global:\nLink 2 (ens33): 192.168.49.2\nLink 3 (docker0):"
   },
   "services": {
-    "system_state": "degraded",
-    "failed_units": [
-      "logrotate.service"
-    ]
+    "system_state": "running",
+    "failed_units": []
   },
   "python": "3.14.4"
 }

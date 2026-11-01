@@ -173,10 +173,10 @@ def collect() -> dict:
     }
 
 
-def save(info: dict) -> Path:
+def save(info: dict, name: str = "system-info.json") -> Path:
     # Hostname comes from the system, but keep it path-safe regardless.
     host = re.sub(r"[^A-Za-z0-9._-]", "_", info["hostname"])
-    path = REPORTS_DIR / host / "system-info.json"
+    path = REPORTS_DIR / host / name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(info, indent=2, ensure_ascii=False) + "\n")
     return path
