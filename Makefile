@@ -2,10 +2,19 @@
 # which would block `uv cache prune` inside the cleanup.
 SYSTEM := .venv/bin/system
 
-.PHONY: cleanup postgres
+.PHONY: collect cleanup postgres pyversions space
+
+collect:
+	$(SYSTEM) collect
 
 cleanup:
 	$(SYSTEM) cleanup --apply
 
 postgres:
 	$(SYSTEM) postgres
+
+pyversions:
+	$(SYSTEM) pyversions
+
+space:
+	$(SYSTEM) space

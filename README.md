@@ -18,3 +18,12 @@ Frees disk space by running `uv cache prune` (drops cache entries nothing refere
     make postgres        # or: uv run system postgres
 
 Shows installed PostgreSQL server versions, the clusters from `pg_lsclusters` with their running version, and every database with its size. Flags unused installed versions, clusters older than the newest installed version, and servers that need a restart after a package update. It connects as your own user first and falls back to `sudo -u <cluster owner>`, so run it in a terminal. The result is also saved to `reports/<hostname>/postgres.json`.
+
+    make pyversions      # or: uv run system pyversions [--root DIR]... [--target 3.14]
+    make space           # or: uv run system space [--root DIR]...
+
+`pyversions` scans project roots (default `/srv/python` and `~/python`, symlinks followed) and reports each project's `.python-version`, `requires-python` and the Python its `.venv` really runs, against the latest version uv knows for `--target`. It flags wrong pins, venvs that are behind or broken, and venvs a running process uses. `space` lists the biggest reclaimable items (uv cache and Pythons, project venvs, `~/.cache` entries, trash, disabled snap revisions, apt cache, journal, docker). Both are read-only and save to `reports/<hostname>/`.
+
+## Claude Code skill
+
+`.claude/skills/systemcheck/` is a Claude Code skill: ask for a "system check" and it runs `collect`, `pyversions`, `space` (and `postgres` where installed), diffs the reports against the last commit and summarizes what needs attention. It is read-only; it never cleans up or deletes anything on its own.
