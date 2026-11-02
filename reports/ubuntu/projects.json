@@ -1,9 +1,12 @@
 {
   "hostname": "ubuntu",
-  "collected_at": "2026-11-01T12:07:23+01:00",
+  "collected_at": "2026-11-01T13:44:58+01:00",
   "audited": true,
   "archive_dir": "/home/croessmann/archive",
-  "registered_but_missing": [],
+  "registered_but_missing": [
+    "/home/croessmann/python/seniorenbeirat",
+    "/home/croessmann/python/recorder"
+  ],
   "projects": [
     {
       "project": "/srv/insyrt/accounting",
@@ -116,178 +119,6 @@
       }
     },
     {
-      "project": "/srv/insyrt/homepage",
-      "status": "active",
-      "has_git": true,
-      "has_commits": true,
-      "commit_age_days": 41,
-      "lock_file": "uv.lock",
-      "lock_age_days": 125,
-      "uncommitted": 0,
-      "has_remote": true,
-      "unpushed": 0,
-      "venv_bytes": 818704956,
-      "archives": [],
-      "running_pids": [],
-      "notes": [
-        "uv.lock is 125 days old (limit 90)",
-        "audit: 258 vulnerabilities in anyio 4.13.0 -> 4.14.2, brotli 1.2.0 -> 1.2.1, brotlicffi 1.2.0.1 -> 1.2.1.0, certifi 2026.2.25 -> 2026.10.18, cryptography 46.0.7 -> 50.0.0, django 6.0.4 -> 6.0.8, djangorestframework 3.17.1 -> 3.18.2, filelock 3.29.0 -> 4.2.1, httplib2 0.31.2 -> 0.32.0, idna 3.11 -> 3.15, msgpack 1.1.2 -> 1.2.3, oauthlib 3.3.1 -> 4.0.0, pillow 12.2.0 -> 13.0.0, pip 26.0.1 -> 26.2.0, pyasn1 0.6.3 -> 0.6.5, soupsieve 2.8.3 -> 2.9.0, sqlparse 0.5.5 -> 0.6.0, urllib3 2.6.3 -> 2.8.0, virtualenv 21.2.4 -> 21.14.9, wagtail 7.3.1 -> 7.3.4, weasyprint 68.1 -> 70.0 (2 unfixed)"
-      ],
-      "audit": {
-        "status": "vulnerable",
-        "vulnerabilities": 258,
-        "packages": [
-          {
-            "name": "anyio",
-            "version": "4.13.0",
-            "count": 4,
-            "upgrade_to": "4.14.2",
-            "unfixed": 0
-          },
-          {
-            "name": "brotli",
-            "version": "1.2.0",
-            "count": 2,
-            "upgrade_to": "1.2.1",
-            "unfixed": 0
-          },
-          {
-            "name": "brotlicffi",
-            "version": "1.2.0.1",
-            "count": 2,
-            "upgrade_to": "1.2.1.0",
-            "unfixed": 0
-          },
-          {
-            "name": "certifi",
-            "version": "2026.2.25",
-            "count": 2,
-            "upgrade_to": "2026.10.18",
-            "unfixed": 0
-          },
-          {
-            "name": "cryptography",
-            "version": "46.0.7",
-            "count": 7,
-            "upgrade_to": "50.0.0",
-            "unfixed": 0
-          },
-          {
-            "name": "django",
-            "version": "6.0.4",
-            "count": 26,
-            "upgrade_to": "6.0.8",
-            "unfixed": 0
-          },
-          {
-            "name": "djangorestframework",
-            "version": "3.17.1",
-            "count": 7,
-            "upgrade_to": "3.18.2",
-            "unfixed": 0
-          },
-          {
-            "name": "filelock",
-            "version": "3.29.0",
-            "count": 9,
-            "upgrade_to": "4.2.1",
-            "unfixed": 0
-          },
-          {
-            "name": "httplib2",
-            "version": "0.31.2",
-            "count": 2,
-            "upgrade_to": "0.32.0",
-            "unfixed": 0
-          },
-          {
-            "name": "idna",
-            "version": "3.11",
-            "count": 2,
-            "upgrade_to": "3.15",
-            "unfixed": 0
-          },
-          {
-            "name": "msgpack",
-            "version": "1.1.2",
-            "count": 3,
-            "upgrade_to": "1.2.3",
-            "unfixed": 0
-          },
-          {
-            "name": "oauthlib",
-            "version": "3.3.1",
-            "count": 6,
-            "upgrade_to": "4.0.0",
-            "unfixed": 0
-          },
-          {
-            "name": "pillow",
-            "version": "12.2.0",
-            "count": 85,
-            "upgrade_to": "13.0.0",
-            "unfixed": 0
-          },
-          {
-            "name": "pip",
-            "version": "26.0.1",
-            "count": 8,
-            "upgrade_to": "26.2.0",
-            "unfixed": 0
-          },
-          {
-            "name": "pyasn1",
-            "version": "0.6.3",
-            "count": 10,
-            "upgrade_to": "0.6.5",
-            "unfixed": 0
-          },
-          {
-            "name": "soupsieve",
-            "version": "2.8.3",
-            "count": 8,
-            "upgrade_to": "2.9.0",
-            "unfixed": 0
-          },
-          {
-            "name": "sqlparse",
-            "version": "0.5.5",
-            "count": 10,
-            "upgrade_to": "0.6.0",
-            "unfixed": 0
-          },
-          {
-            "name": "urllib3",
-            "version": "2.6.3",
-            "count": 10,
-            "upgrade_to": "2.8.0",
-            "unfixed": 0
-          },
-          {
-            "name": "virtualenv",
-            "version": "21.2.4",
-            "count": 23,
-            "upgrade_to": "21.14.9",
-            "unfixed": 0
-          },
-          {
-            "name": "wagtail",
-            "version": "7.3.1",
-            "count": 26,
-            "upgrade_to": "7.3.4",
-            "unfixed": 0
-          },
-          {
-            "name": "weasyprint",
-            "version": "68.1",
-            "count": 6,
-            "upgrade_to": "70.0",
-            "unfixed": 2
-          }
-        ]
-      }
-    },
-    {
       "project": "/srv/python/helferkreis",
       "status": "active",
       "has_git": true,
@@ -319,6 +150,29 @@
             "unfixed": 0
           }
         ]
+      }
+    },
+    {
+      "project": "/srv/insyrt/homepage",
+      "status": "active",
+      "has_git": true,
+      "has_commits": true,
+      "commit_age_days": 0,
+      "lock_file": "uv.lock",
+      "lock_age_days": 0,
+      "uncommitted": 0,
+      "has_remote": true,
+      "unpushed": 1,
+      "venv_bytes": 820349982,
+      "archives": [],
+      "running_pids": [],
+      "notes": [
+        "1 unpushed commits"
+      ],
+      "audit": {
+        "status": "clean",
+        "vulnerabilities": 0,
+        "packages": []
       }
     },
     {
@@ -841,9 +695,9 @@
       "status": "unclassified",
       "has_git": true,
       "has_commits": true,
-      "commit_age_days": 230,
+      "commit_age_days": 231,
       "lock_file": "uv.lock",
-      "lock_age_days": 230,
+      "lock_age_days": 231,
       "uncommitted": 9,
       "has_remote": false,
       "unpushed": 0,
@@ -993,9 +847,9 @@
       "status": "unclassified",
       "has_git": true,
       "has_commits": true,
-      "commit_age_days": 207,
+      "commit_age_days": 208,
       "lock_file": "uv.lock",
-      "lock_age_days": 210,
+      "lock_age_days": 211,
       "uncommitted": 0,
       "has_remote": true,
       "unpushed": 0,
@@ -2125,7 +1979,7 @@
       "has_commits": false,
       "commit_age_days": null,
       "lock_file": "poetry.lock",
-      "lock_age_days": 1429,
+      "lock_age_days": 1430,
       "uncommitted": null,
       "has_remote": false,
       "unpushed": 0,
@@ -2272,62 +2126,18 @@
       "commit_age_days": 0,
       "lock_file": "uv.lock",
       "lock_age_days": 0,
-      "uncommitted": 4,
-      "has_remote": false,
+      "uncommitted": 0,
+      "has_remote": true,
       "unpushed": 0,
       "venv_bytes": 32161,
       "archives": [],
       "running_pids": [],
-      "notes": [
-        "no remote: commits exist only here",
-        "4 uncommitted files"
-      ],
+      "notes": [],
       "audit": {
         "status": "clean",
         "vulnerabilities": 0,
         "packages": []
       }
-    },
-    {
-      "project": "/home/croessmann/python/seniorenbeirat",
-      "status": "archive",
-      "has_git": true,
-      "has_commits": true,
-      "commit_age_days": 1583,
-      "lock_file": "poetry.lock",
-      "lock_age_days": 1638,
-      "uncommitted": 27,
-      "has_remote": true,
-      "unpushed": 0,
-      "venv_bytes": null,
-      "archives": [
-        "/home/croessmann/archive/python-seniorenbeirat-20261101.tar.gz"
-      ],
-      "running_pids": [],
-      "notes": [
-        "27 uncommitted files"
-      ]
-    },
-    {
-      "project": "/home/croessmann/python/recorder",
-      "status": "archive",
-      "has_git": true,
-      "has_commits": true,
-      "commit_age_days": 748,
-      "lock_file": "uv.lock",
-      "lock_age_days": 756,
-      "uncommitted": 9,
-      "has_remote": false,
-      "unpushed": 0,
-      "venv_bytes": null,
-      "archives": [
-        "/home/croessmann/archive/python-recorder-20261101.tar.gz"
-      ],
-      "running_pids": [],
-      "notes": [
-        "no remote: commits exist only here",
-        "9 uncommitted files"
-      ]
     }
   ]
 }
