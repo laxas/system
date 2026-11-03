@@ -33,7 +33,7 @@ Shows installed PostgreSQL server versions, the clusters from `pg_lsclusters` wi
 
     make repos           # or: .venv/bin/system repos [--root DIR]... [--files] [--all]
 
-`repos` lists the git repositories directly under the project roots (any language) that have uncommitted changes (staged, modified, untracked, conflicts) or unpushed commits, or that have no remote or upstream. `--files` shows the changed paths, `--all` includes clean repos. It only runs `git status` (no fetch), so "behind" is as of the last fetch. Saved to `reports/<hostname>/repos.json`.
+`repos` lists the git repositories directly under the project roots (any language) that have uncommitted changes (staged, modified, untracked, conflicts) or unpushed commits, or that have no remote or upstream. Each line also names the dependency tools the repo uses (from lock/manifest files and `pyproject.toml`: uv, poetry, pdm, pipenv, pip, hatch, setuptools, npm, composer). Output is colored for light terminal themes when it goes to a terminal; set `NO_COLOR` to turn that off. `--files` shows the changed paths, `--all` includes clean repos. It only runs `git status` (no fetch), so "behind" is as of the last fetch. Saved to `reports/<hostname>/repos.json`.
 
 ## Claude Code skill
 
