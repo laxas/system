@@ -77,6 +77,12 @@ def main() -> None:
     )
     rp.add_argument("--files", action="store_true", help="list the changed files")
     rp.add_argument("--all", action="store_true", help="also list clean repos")
+    rp.add_argument(
+        "--sort",
+        choices=repos.SORT_KEYS,
+        default="path",
+        help="order by path, or oldest first by last commit / last changed file",
+    )
 
     clean = sub.add_parser(
         "cleanup", help="prune the uv cache and delete old logs (dry run by default)"
@@ -123,7 +129,7 @@ def main() -> None:
         print(f"\nSaved to {save(info, 'projects.json')}")
     elif args.command == "repos":
         info = repos.survey(args.root or pyversions.DEFAULT_ROOTS)
-        repos.show(info, files=args.files, show_all=args.all)
+        repos.show(info, files=args.files, show_all=args.all, sort=args.sort)
         print(f"\nSaved to {save(info, 'repos.json')}")
     elif args.command == "space":
         info = space.survey(args.root or pyversions.DEFAULT_ROOTS)

@@ -38,6 +38,7 @@ COLORS = {
     "error": "1;31",
     "branch": "90",
     "tool": "90",
+    "date": "34;2",
     "repo": "1",
 }
 
@@ -114,6 +115,50 @@ def detect_tools(repo: Path) -> list[str]:
     return tools
 
 
+def git_out(repo: Path, *args: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(repo), *args], capture_output=True, text=True
+    )
+    return result.stdout if result.returncode == 0 else ""
+
+
+def iso(timestamp: float | None) -> str | None:
+    if timestamp is None:
+        return None
+    return datetime.fromtimestamp(timestamp).astimezone().isoformat(timespec="seconds")
+
+
+def last_commit(repo: Path) -> str | None:
+    out = git_out(repo, "log", "-1", "--format=%ct").strip()
+    return iso(float(out)) if out else None
+
+
+# Tooling metadata that bulk edits touch (e.g. re-pinning Python); it says nothing about work on the code.
+NOT_A_CHANGE = {".python-version"}
+
+
+def last_changed_file(repo: Path) -> tuple[str | None, str | None]:
+    """(time, path) of the newest file in the working tree, tracked or untracked.
+
+    Ignored files (.venv, caches, build output) and NOT_A_CHANGE do not count. Note that checkout/clone sets
+    mtimes, so a fresh clone looks recently changed.
+    """
+    newest, newest_path = None, None
+    listing = git_out(
+        repo, "ls-files", "-z", "--cached", "--others", "--exclude-standard"
+    )
+    for rel in filter(None, listing.split("\0")):
+        if Path(rel).name in NOT_A_CHANGE:
+            continue
+        try:
+            mtime = (repo / rel).lstat().st_mtime
+        except OSError:  # tracked but deleted
+            continue
+        if newest is None or mtime > newest:
+            newest, newest_path = mtime, rel
+    return iso(newest), newest_path
+
+
 def repo_status(repo: Path) -> dict:
     result = subprocess.run(
         ["git", "-C", str(repo), "status", "--porcelain=v2", "--branch"],
@@ -128,11 +173,9 @@ def repo_status(repo: Path) -> dict:
     info = parse_status(result.stdout)
     info["repo"] = str(repo)
     info["tools"] = detect_tools(repo)
-    info["has_remote"] = bool(
-        subprocess.run(
-            ["git", "-C", str(repo), "remote"], capture_output=True, text=True
-        ).stdout.strip()
-    )
+    info["last_commit"] = last_commit(repo)
+    info["last_changed"], info["last_changed_file"] = last_changed_file(repo)
+    info["has_remote"] = bool(git_out(repo, "remote").strip())
     info["dirty"] = any(
         info[k] for k in ("staged", "modified", "untracked", "conflicts")
     )
@@ -177,14 +220,34 @@ def summary(r: dict, color: bool = False) -> str:
     return ", ".join(parts) or paint("clean", "clean", color)
 
 
-def show(info: dict, files: bool = False, show_all: bool = False) -> None:
+SORT_KEYS = ("path", "commit", "changed")
+
+
+def day(value: str | None) -> str:
+    return value[:10] if value else "-"
+
+
+def show(
+    info: dict, files: bool = False, show_all: bool = False, sort: str = "path"
+) -> None:
     color = use_color()
     repos = info["repos"]
     listed = [r for r in repos if show_all or needs_attention(r)]
+    if sort != "path":  # oldest first, so stale repos come to the top
+        field = "last_commit" if sort == "commit" else "last_changed"
+        listed.sort(key=lambda r: r.get(field) or "")
     width = max((len(r["repo"]) for r in listed), default=10)
     tools_of = {r["repo"]: "+".join(r.get("tools") or ["-"]) for r in listed}
     tool_width = max((len(t) for t in tools_of.values()), default=1)
     branch_width = max((len(r.get("branch") or "") for r in listed), default=1) + 2
+    print(
+        paint(
+            f"{'repo':<{width}}  {'tools':<{tool_width}}  {'branch':<{branch_width}}"
+            f" {'commit':<10}  {'changed':<10}  status",
+            "branch",
+            color,
+        )
+    )
     for r in listed:
         name = paint(f"{r['repo']:<{width}}", "repo", color)
         if "error" in r:
@@ -194,7 +257,10 @@ def show(info: dict, files: bool = False, show_all: bool = False) -> None:
         branch = paint(
             f"{'[' + str(r['branch']) + ']':<{branch_width}}", "branch", color
         )
-        print(f"{name}  {tools}  {branch} {summary(r, color)}")
+        dates = paint(
+            f"{day(r['last_commit']):<10}  {day(r['last_changed']):<10}", "date", color
+        )
+        print(f"{name}  {tools}  {branch} {dates}  {summary(r, color)}")
         if files:
             for k, mark in (
                 ("conflicts", "U"),
