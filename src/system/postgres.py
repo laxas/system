@@ -30,7 +30,13 @@ order by size_bytes desc nulls last, name
 def installed_servers() -> dict[str, str]:
     """Major version -> package version for installed postgresql-<major> server packages."""
     out = subprocess.run(
-        ["dpkg-query", "-W", "-f", "${db:Status-Abbrev} ${Package} ${Version}\\n", "postgresql-[0-9]*"],
+        [
+            "dpkg-query",
+            "-W",
+            "-f",
+            "${db:Status-Abbrev} ${Package} ${Version}\\n",
+            "postgresql-[0-9]*",
+        ],
         capture_output=True,
         text=True,
     ).stdout
@@ -55,7 +61,9 @@ def client_version() -> str | None:
 def list_clusters() -> list[dict]:
     if shutil.which("pg_lsclusters") is None:
         return []
-    out = subprocess.run(["pg_lsclusters", "--no-header"], capture_output=True, text=True).stdout
+    out = subprocess.run(
+        ["pg_lsclusters", "--no-header"], capture_output=True, text=True
+    ).stdout
     clusters = []
     for line in out.splitlines():
         version, name, port, status, owner, data_dir, *log = line.split(None, 6)
@@ -84,19 +92,36 @@ def run_query(cluster: dict, sql: str) -> tuple[list[dict], str]:
     (peer authentication), which prompts for a password on a terminal.
     Raises RuntimeError with psql's message if both fail.
     """
-    psql = [psql_binary(cluster["version"]), "-X", "-w", "--csv", "-h", SOCKET_DIR, "-p", str(cluster["port"])]
+    psql = [
+        psql_binary(cluster["version"]),
+        "-X",
+        "-w",
+        "--csv",
+        "-h",
+        SOCKET_DIR,
+        "-p",
+        str(cluster["port"]),
+    ]
     psql += ["-d", "postgres", "-c", sql]
     attempts = [("current user", psql)]
     if os.geteuid() != 0:
-        attempts.append((f"sudo -u {cluster['owner']}", ["sudo", "-u", cluster["owner"], *psql]))
+        attempts.append(
+            (f"sudo -u {cluster['owner']}", ["sudo", "-u", cluster["owner"], *psql])
+        )
 
     errors = []
     for how, cmd in attempts:
         # cwd="/" so the postgres user does not trip over an unreadable working directory.
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd="/", timeout=120)
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, cwd="/", timeout=120
+        )
         if result.returncode == 0:
             return list(csv.DictReader(io.StringIO(result.stdout))), how
-        message = result.stderr.strip().splitlines()[-1] if result.stderr.strip() else f"exit {result.returncode}"
+        message = (
+            result.stderr.strip().splitlines()[-1]
+            if result.stderr.strip()
+            else f"exit {result.returncode}"
+        )
         errors.append(f"{how}: {message}")
     raise RuntimeError("; ".join(errors))
 
@@ -131,7 +156,9 @@ def findings(installed: dict[str, str], clusters: list[dict]) -> list[str]:
     newest = max(installed, key=int, default=None)
     for version in sorted(installed, key=int):
         if version not in used:
-            notes.append(f"PostgreSQL {version} is installed but has no cluster (unused)")
+            notes.append(
+                f"PostgreSQL {version} is installed but has no cluster (unused)"
+            )
     for c in clusters:
         label = f"{c['version']}/{c['name']}"
         if not c["status"].startswith("online"):
@@ -144,7 +171,9 @@ def findings(installed: dict[str, str], clusters: list[dict]) -> list[str]:
         running = c.get("running_version")
         package = installed.get(c["version"], "").split("-")[0]
         if running and package and running != package:
-            notes.append(f"cluster {label} runs {running} but package is {package}: restart needed")
+            notes.append(
+                f"cluster {label} runs {running} but package is {package}: restart needed"
+            )
         if "error" in c:
             notes.append(f"cluster {label}: could not query databases ({c['error']})")
     return notes
@@ -166,7 +195,9 @@ def check() -> dict:
 def show(info: dict) -> None:
     print(f"psql client: {info['client_version'] or 'not installed'}")
     print("\nInstalled servers:")
-    for version, package in sorted(info["installed_servers"].items(), key=lambda kv: int(kv[0])):
+    for version, package in sorted(
+        info["installed_servers"].items(), key=lambda kv: int(kv[0])
+    ):
         print(f"  postgresql-{version}  {package}")
     if not info["installed_servers"]:
         print("  none")
@@ -176,16 +207,22 @@ def show(info: dict) -> None:
         print("  none")
     for c in info["clusters"]:
         running = c.get("running_version")
-        print(f"  {c['version']}/{c['name']}  port {c['port']}  {c['status']}  {c['data_dir']}")
+        print(
+            f"  {c['version']}/{c['name']}  port {c['port']}  {c['status']}  {c['data_dir']}"
+        )
         if running:
-            print(f"    running version: {running}  (connected via {c['connected_as']})")
+            print(
+                f"    running version: {running}  (connected via {c['connected_as']})"
+            )
         if "error" in c:
             print(f"    cannot query: {c['error']}")
         dbs = c.get("databases", [])
         for db in dbs:
             size = human(db["size_bytes"]) if db["size_bytes"] is not None else "n/a"
             flag = "  [template]" if db["is_template"] else ""
-            print(f"    {db['name']:<24} {size:>10}  owner={db['owner']}  {db['encoding']}{flag}")
+            print(
+                f"    {db['name']:<24} {size:>10}  owner={db['owner']}  {db['encoding']}{flag}"
+            )
         if dbs:
             total = sum(db["size_bytes"] or 0 for db in dbs)
             print(f"    {'total':<24} {human(total):>10}")

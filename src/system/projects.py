@@ -30,7 +30,10 @@ from system.util import human
 
 REGISTRY = REPO_ROOT / "projects.toml"
 STATUSES = ("active", "grey", "idea", "archive")
-LOCK_MAX_AGE_DAYS = {"active": 90, "grey": 180}  # override per host with [hosts.<h>.lock_max_age_days]
+LOCK_MAX_AGE_DAYS = {
+    "active": 90,
+    "grey": 180,
+}  # override per host with [hosts.<h>.lock_max_age_days]
 SKIP_IN_ARCHIVE = {".venv", "node_modules", "__pycache__"}
 
 
@@ -40,10 +43,14 @@ def load_registry(host: str) -> dict:
     except FileNotFoundError:
         data = {}
     cfg = data.get("hosts", {}).get(host, {})
-    projects = {str(Path(k).expanduser()): v for k, v in cfg.get("projects", {}).items()}
+    projects = {
+        str(Path(k).expanduser()): v for k, v in cfg.get("projects", {}).items()
+    }
     unknown = {k: v for k, v in projects.items() if v not in STATUSES}
     if unknown:
-        raise SystemExit(f"{REGISTRY}: status must be one of {', '.join(STATUSES)}; got {unknown}")
+        raise SystemExit(
+            f"{REGISTRY}: status must be one of {', '.join(STATUSES)}; got {unknown}"
+        )
     return {
         "roots": cfg.get("roots", DEFAULT_ROOTS),
         "archive_dir": Path(cfg.get("archive_dir", "~/archive")).expanduser(),
@@ -53,7 +60,9 @@ def load_registry(host: str) -> dict:
 
 
 def git(project: Path, *args: str) -> str | None:
-    result = subprocess.run(["git", "-C", str(project), *args], capture_output=True, text=True)
+    result = subprocess.run(
+        ["git", "-C", str(project), *args], capture_output=True, text=True
+    )
     return result.stdout.strip() if result.returncode == 0 else None
 
 
@@ -66,9 +75,15 @@ def signals(project: Path) -> dict:
     has_git = (project / ".git").exists()
     last = git(project, "log", "-1", "--format=%ct") if has_git else None
     lock = next((f for f in ("uv.lock", "poetry.lock") if (project / f).exists()), None)
-    lock_ts = git(project, "log", "-1", "--format=%ct", "--", lock) if has_git and lock else None
+    lock_ts = (
+        git(project, "log", "-1", "--format=%ct", "--", lock)
+        if has_git and lock
+        else None
+    )
     if lock and not lock_ts:
-        lock_ts = str((project / lock).stat().st_mtime)  # not committed: fall back to file mtime
+        lock_ts = str(
+            (project / lock).stat().st_mtime
+        )  # not committed: fall back to file mtime
     ahead = git(project, "rev-list", "--count", "@{u}..HEAD") if last else None
     return {
         "has_git": has_git,
@@ -76,7 +91,9 @@ def signals(project: Path) -> dict:
         "commit_age_days": age_days(last),
         "lock_file": lock,
         "lock_age_days": age_days(lock_ts),
-        "uncommitted": len((git(project, "status", "--porcelain") or "").splitlines()) if has_git else None,
+        "uncommitted": len((git(project, "status", "--porcelain") or "").splitlines())
+        if has_git
+        else None,
         "has_remote": bool(git(project, "remote")) if has_git else False,
         "unpushed": int(ahead) if ahead else 0,
         "venv_bytes": dir_size(project / ".venv"),
@@ -88,7 +105,11 @@ def archive_slug(project: Path) -> str:
 
 
 def existing_archives(project: Path, archive_dir: Path) -> list[Path]:
-    return sorted(archive_dir.glob(f"{archive_slug(project)}-*.tar.gz")) if archive_dir.is_dir() else []
+    return (
+        sorted(archive_dir.glob(f"{archive_slug(project)}-*.tar.gz"))
+        if archive_dir.is_dir()
+        else []
+    )
 
 
 def should_audit(status: str | None, row: dict) -> bool:
@@ -97,10 +118,22 @@ def should_audit(status: str | None, row: dict) -> bool:
     return status is None and row["venv_bytes"] is not None
 
 
-def advise(status: str | None, row: dict, limit: dict[str, int], archived: bool, running: list[int]) -> list[str]:
+def advise(
+    status: str | None,
+    row: dict,
+    limit: dict[str, int],
+    archived: bool,
+    running: list[int],
+) -> list[str]:
     notes = []
-    if status in ("active", "grey") and row["lock_age_days"] is not None and row["lock_age_days"] > limit[status]:
-        notes.append(f"{row['lock_file']} is {row['lock_age_days']} days old (limit {limit[status]})")
+    if (
+        status in ("active", "grey")
+        and row["lock_age_days"] is not None
+        and row["lock_age_days"] > limit[status]
+    ):
+        notes.append(
+            f"{row['lock_file']} is {row['lock_age_days']} days old (limit {limit[status]})"
+        )
     if status in ("active", "grey") and row["lock_file"] == "poetry.lock":
         notes.append("poetry project: uv audit cannot check it, migrate to uv")
     if status in ("idea", "archive") and row["venv_bytes"] is not None:
@@ -156,22 +189,37 @@ def audit_project(project: Path) -> dict:
     try:
         result = subprocess.run(
             ["uv", "audit", "--frozen", "--output-format", "json"],
-            cwd=project, capture_output=True, text=True, timeout=300,
+            cwd=project,
+            capture_output=True,
+            text=True,
+            timeout=300,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         return {"status": "error", "reason": str(exc) or "timed out"}
     try:
-        data = json.loads(result.stdout)  # exit code 1 just means vulnerabilities were found
+        data = json.loads(
+            result.stdout
+        )  # exit code 1 just means vulnerabilities were found
     except json.JSONDecodeError:
-        return {"status": "error", "reason": (result.stderr.strip().splitlines() or ["no output"])[-1]}
+        return {
+            "status": "error",
+            "reason": (result.stderr.strip().splitlines() or ["no output"])[-1],
+        }
     by_package: dict[tuple[str, str], list[dict]] = {}
     for v in data.get("vulnerabilities", []):
-        by_package.setdefault((v["dependency"]["name"], v["dependency"]["version"]), []).append(v)
+        by_package.setdefault(
+            (v["dependency"]["name"], v["dependency"]["version"]), []
+        ).append(v)
     return {
         "status": "vulnerable" if by_package else "clean",
         "vulnerabilities": sum(len(v) for v in by_package.values()),
         "packages": [
-            {"name": n, "version": ver, "count": len(vs), **dict(zip(("upgrade_to", "unfixed"), fixed_in(vs, ver)))}
+            {
+                "name": n,
+                "version": ver,
+                "count": len(vs),
+                **dict(zip(("upgrade_to", "unfixed"), fixed_in(vs, ver))),
+            }
             for (n, ver), vs in sorted(by_package.items())
         ],
     }
@@ -179,18 +227,28 @@ def audit_project(project: Path) -> dict:
 
 def create_archive(project: Path, archive_dir: Path) -> Path:
     """tar.gz of the project (including .git, excluding venvs/caches); verified before it is kept."""
-    archive_dir.mkdir(mode=0o700, parents=True, exist_ok=True)  # archives can hold credentials: owner only
+    archive_dir.mkdir(
+        mode=0o700, parents=True, exist_ok=True
+    )  # archives can hold credentials: owner only
     dest = archive_dir / f"{archive_slug(project)}-{datetime.now():%Y%m%d}.tar.gz"
     part = dest.with_name(dest.name + ".part")
     try:
         with tarfile.open(part, "w:gz") as tar:
-            tar.add(project, arcname=project.name, filter=lambda t: None if SKIP_IN_ARCHIVE & set(Path(t.name).parts) else t)
-        with tarfile.open(part, "r:gz") as tar:  # reading it back end to end proves it is not truncated
+            tar.add(
+                project,
+                arcname=project.name,
+                filter=lambda t: (
+                    None if SKIP_IN_ARCHIVE & set(Path(t.name).parts) else t
+                ),
+            )
+        with tarfile.open(
+            part, "r:gz"
+        ) as tar:  # reading it back end to end proves it is not truncated
             members = tar.getmembers()
             for m in members:
                 if m.isfile():
                     tar.extractfile(m).read()
-    except (OSError, tarfile.TarError):
+    except OSError, tarfile.TarError:
         part.unlink(missing_ok=True)
         raise
     part.chmod(0o600)
@@ -210,24 +268,43 @@ def survey(roots: list[str] | None, audit: bool) -> dict:
     rows = []
     for project in found:
         status = reg["projects"].get(str(project))
-        row = {"project": str(project), "status": status or "unclassified", **signals(project)}
-        row["archives"] = [str(a) for a in existing_archives(project, reg["archive_dir"])]
+        row = {
+            "project": str(project),
+            "status": status or "unclassified",
+            **signals(project),
+        }
+        row["archives"] = [
+            str(a) for a in existing_archives(project, reg["archive_dir"])
+        ]
         row["running_pids"] = running.get(project, [])
-        row["notes"] = advise(status, row, reg["lock_max_age_days"], bool(row["archives"]), row["running_pids"])
+        row["notes"] = advise(
+            status,
+            row,
+            reg["lock_max_age_days"],
+            bool(row["archives"]),
+            row["running_pids"],
+        )
         if audit and should_audit(status, row):
             row["audit"] = audit_project(project)
             result = row["audit"]
             if result["status"] == "vulnerable":
                 pkgs = ", ".join(describe_fix(p) for p in result["packages"])
-                row["notes"].append(f"audit: {result['vulnerabilities']} vulnerabilities in {pkgs}")
+                row["notes"].append(
+                    f"audit: {result['vulnerabilities']} vulnerabilities in {pkgs}"
+                )
             elif result["status"] == "error":
                 row["notes"].append(f"audit failed: {result['reason']}")
             elif result["status"] == "skipped" and status in ("active", "grey"):
                 row["notes"].append(f"audit skipped: {result['reason']}")
         rows.append(row)
     missing = [p for p in reg["projects"] if p not in {str(f) for f in found}]
-    order = {s: i for i, s in enumerate(("active", "grey", "unclassified", "idea", "archive"))}
-    rows.sort(key=lambda r: (order[r["status"]], -(r["commit_age_days"] or 0), r["project"]))
+    order = {
+        s: i
+        for i, s in enumerate(("active", "grey", "unclassified", "idea", "archive"))
+    }
+    rows.sort(
+        key=lambda r: (order[r["status"]], -(r["commit_age_days"] or 0), r["project"])
+    )
     return {
         "hostname": host,
         "collected_at": datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -263,16 +340,22 @@ def archive_pending(info: dict) -> None:
         except (OSError, tarfile.TarError) as exc:
             print(f"FAILED {project}: {exc}")
             continue
-        print(f"archived {project} -> {dest} ({human(dest.stat().st_size)}); original left in place")
+        print(
+            f"archived {project} -> {dest} ({human(dest.stat().st_size)}); original left in place"
+        )
 
 
 def show(info: dict) -> None:
-    age = lambda v: "-" if v is None else str(v)  # noqa: E731
+    age = lambda v: "-" if v is None else str(v)
     width = max((len(r["project"]) for r in info["projects"]), default=10)
-    print(f"{'status':<13}{'project':<{width}}  {'commit_d':>8} {'lock_d':>7} {'venv':>10}")
+    print(
+        f"{'status':<13}{'project':<{width}}  {'commit_d':>8} {'lock_d':>7} {'venv':>10}"
+    )
     for r in info["projects"]:
         venv = human(r["venv_bytes"]) if r["venv_bytes"] is not None else "-"
-        print(f"{r['status']:<13}{r['project']:<{width}}  {age(r['commit_age_days']):>8} {age(r['lock_age_days']):>7} {venv:>10}")
+        print(
+            f"{r['status']:<13}{r['project']:<{width}}  {age(r['commit_age_days']):>8} {age(r['lock_age_days']):>7} {venv:>10}"
+        )
     unclassified = sum(r["status"] == "unclassified" for r in info["projects"])
     if unclassified:
         print(f"\n{unclassified} unclassified projects: add them to projects.toml")

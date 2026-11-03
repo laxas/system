@@ -20,8 +20,10 @@ def run(*cmd: str, ok_nonzero: bool = False) -> str | None:
         return None
     env = {**os.environ, "LC_ALL": "C", "LANG": "C"}
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, env=env)
-    except (OSError, subprocess.TimeoutExpired):
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=30, env=env
+        )
+    except OSError, subprocess.TimeoutExpired:
         return None
     return result.stdout.strip() if (result.returncode == 0 or ok_nonzero) else None
 
@@ -85,10 +87,15 @@ def memory_info() -> dict:
 
 def disk_info() -> dict:
     return {
-        "block_devices": (run_json("lsblk", "-J", "-e7", "-o", "NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS,MODEL") or {}).get(
-            "blockdevices"
-        ),
-        "filesystems": [fs for device, mount in _real_mounts() if (fs := _fs_usage(device, mount))],
+        "block_devices": (
+            run_json(
+                "lsblk", "-J", "-e7", "-o", "NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS,MODEL"
+            )
+            or {}
+        ).get("blockdevices"),
+        "filesystems": [
+            fs for device, mount in _real_mounts() if (fs := _fs_usage(device, mount))
+        ],
     }
 
 
@@ -102,7 +109,11 @@ def _real_mounts() -> list[tuple[str, str]]:
         return mounts
     for line in lines:
         device, mount, *_ = line.split()
-        if device.startswith("/dev/") and not device.startswith("/dev/loop") and device not in seen:
+        if (
+            device.startswith("/dev/")
+            and not device.startswith("/dev/loop")
+            and device not in seen
+        ):
             seen.add(device)
             mounts.append((device, mount.replace("\\040", " ")))
     return mounts
@@ -134,7 +145,9 @@ def network_info() -> dict:
             {
                 "name": iface.get("ifname"),
                 "state": iface.get("operstate"),
-                "addresses": [f"{a['local']}/{a['prefixlen']}" for a in iface.get("addr_info", [])],
+                "addresses": [
+                    f"{a['local']}/{a['prefixlen']}" for a in iface.get("addr_info", [])
+                ],
             }
         )
     return {
@@ -148,7 +161,9 @@ def services_info() -> dict:
     failed = run("systemctl", "--failed", "--no-legend", "--plain", "--no-pager")
     return {
         "system_state": run("systemctl", "is-system-running", ok_nonzero=True),
-        "failed_units": [line.split()[0] for line in failed.splitlines()] if failed else [],
+        "failed_units": [line.split()[0] for line in failed.splitlines()]
+        if failed
+        else [],
     }
 
 

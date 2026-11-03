@@ -29,7 +29,9 @@ def privileged(*cmd: str) -> list[str]:
 
 def uv_cache_size() -> int | None:
     result = subprocess.run(
-        ["uv", "cache", "size", "--preview-features", "cache-size"], capture_output=True, text=True
+        ["uv", "cache", "size", "--preview-features", "cache-size"],
+        capture_output=True,
+        text=True,
     )
     try:
         return int(result.stdout.strip())
@@ -52,10 +54,14 @@ def clean_uv_cache(apply: bool) -> None:
         )
         return
     if not apply:
-        print("would run: uv cache prune (uv has no dry run; it removes unreferenced entries)")
+        print(
+            "would run: uv cache prune (uv has no dry run; it removes unreferenced entries)"
+        )
         return
     # Fail fast if another uv process really is using the cache, instead of waiting 5 minutes.
-    result = subprocess.run(["uv", "cache", "prune"], env={**os.environ, "UV_LOCK_TIMEOUT": "30"})
+    result = subprocess.run(
+        ["uv", "cache", "prune"], env={**os.environ, "UV_LOCK_TIMEOUT": "30"}
+    )
     if result.returncode != 0:
         print(f"uv cache prune failed (exit {result.returncode}), continuing")
         return
@@ -68,13 +74,17 @@ def disabled_snaps() -> list[tuple[str, str, int]]:
     """(name, revision, size in bytes) of disabled snap revisions, i.e. old copies kept for rollback."""
     if shutil.which("snap") is None:
         return []
-    out = subprocess.run(["snap", "list", "--all"], capture_output=True, text=True, env=C_ENV).stdout
+    out = subprocess.run(
+        ["snap", "list", "--all"], capture_output=True, text=True, env=C_ENV
+    ).stdout
     found = []
     for line in out.splitlines()[1:]:
         fields = line.split()
         if len(fields) >= 6 and "disabled" in fields[-1]:
             path = SNAP_DIR / f"{fields[0]}_{fields[2]}.snap"
-            found.append((fields[0], fields[2], path.stat().st_size if path.exists() else 0))
+            found.append(
+                (fields[0], fields[2], path.stat().st_size if path.exists() else 0)
+            )
     return found
 
 
@@ -87,7 +97,9 @@ def clean_snaps(apply: bool) -> None:
     if not apply:
         return
     for name, revision, _ in snaps:
-        result = subprocess.run(privileged("snap", "remove", name, f"--revision={revision}"))
+        result = subprocess.run(
+            privileged("snap", "remove", name, f"--revision={revision}")
+        )
         if result.returncode != 0:
             print(f"failed to remove {name} rev {revision}, continuing")
 
@@ -120,7 +132,9 @@ def clean_logs(days: int, apply: bool) -> None:
         print(f"  {human(size):>10}  {path}")
     print(f"{len(files)} files, {human(total)}")
     if apply and files:
-        subprocess.run(privileged("rm", "-f", "--", *map(str, (p for p, _ in files))), check=True)
+        subprocess.run(
+            privileged("rm", "-f", "--", *map(str, (p for p, _ in files))), check=True
+        )
         print("deleted")
 
 
@@ -136,8 +150,16 @@ def vacuum_journal(days: int, apply: bool) -> None:
     subprocess.run(privileged("journalctl", f"--vacuum-time={days}d"), check=True)
 
 
-def cleanup(days: int = 30, apply: bool = False, uv: bool = True, logs: bool = True, snap: bool = True) -> None:
-    sys.stdout.reconfigure(line_buffering=True)  # keep our output ordered with subprocess output
+def cleanup(
+    days: int = 30,
+    apply: bool = False,
+    uv: bool = True,
+    logs: bool = True,
+    snap: bool = True,
+) -> None:
+    sys.stdout.reconfigure(
+        line_buffering=True
+    )  # keep our output ordered with subprocess output
     if not apply:
         print("DRY RUN - nothing is deleted. Re-run with --apply to clean up.\n")
     if uv:
