@@ -26,6 +26,7 @@ Shows installed PostgreSQL server versions, the clusters from `pg_lsclusters` wi
 
     make projects        # classification, stale lockfiles, backup risks
     make audit           # same plus uv audit (needs network)
+    .venv/bin/system projects --archive ~/python/foo   # tar.gz just this project (originals kept)
     .venv/bin/system projects --archive   # tar.gz the projects marked "archive" (originals kept)
     .venv/bin/system projects --apply     # remove the .venv of "idea"/"archive" projects
 

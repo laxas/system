@@ -1,12 +1,69 @@
 import argparse
 
+RAW = argparse.RawDescriptionHelpFormatter
+
+EXAMPLES = {
+    "main": """\
+examples:
+  system collect                     system info -> reports/<host>/system-info.json
+  system repos --sort changed        git repos with uncommitted work, stalest first
+  system projects --audit            classify projects and audit their dependencies
+  system cleanup                     dry run: what would be freed
+  system <command> --help            examples for one command
+
+Run cleanup as .venv/bin/system (or make cleanup), not uv run: uv run holds the uv cache lock.""",
+    "pyversions": """\
+examples:
+  system pyversions                          scan /srv/python and ~/python against 3.14
+  system pyversions --root ~/python          only one root
+  system pyversions --target 3.13            compare against another minor version""",
+    "space": """\
+examples:
+  system space                               biggest reclaimable items
+  system space --root /srv/www               also measure venvs under another root""",
+    "projects": """\
+Projects are classified in projects.toml under [hosts.<hostname>.projects]:
+  "~/python/services" = "archive"            # active | grey | idea | archive
+
+examples:
+  system projects                            classification, stale locks, backup risks
+  system projects --audit                    plus uv audit (needs network, ~30 s)
+  system projects --root ~/python            only one root
+
+  # archive one or more projects directly
+  system projects --archive ~/python/services        tar.gz to ~/archive (+ .sha256), original kept
+  system projects --archive ~/python/a ~/python/b --apply   same, and remove their .venv
+
+  # or mark them "archive" in projects.toml, then
+  system projects --archive                  archive every marked project not archived yet
+  system projects --archive --apply          same, and remove their .venv
+  system projects --apply                    only remove .venv of idea/archive projects
+
+Archives leave out .venv, node_modules and __pycache__. Deleting the original is up to you.""",
+    "repos": """\
+examples:
+  system repos                               repos with uncommitted/unpushed work or no remote
+  system repos --files                       plus the changed paths (S staged, M modified, ? untracked)
+  system repos --all --sort commit           every repo, oldest last commit first
+  system repos --root /srv/python            only one root
+  NO_COLOR=1 system repos                    no colors""",
+    "cleanup": """\
+examples:
+  .venv/bin/system cleanup                   dry run: show what would be removed
+  .venv/bin/system cleanup --apply           do it (uses sudo for logs, journal, snaps)
+  .venv/bin/system cleanup --apply --skip-logs --days 60
+  make cleanup                               same as cleanup --apply""",
+}
+
 from system import postgres, projects, pyversions, repos, space
 from system.cleanup import cleanup
 from system.collect import collect, save
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="system")
+    parser = argparse.ArgumentParser(
+        prog="system", epilog=EXAMPLES["main"], formatter_class=RAW
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser(
@@ -20,6 +77,8 @@ def main() -> None:
 
     py = sub.add_parser(
         "pyversions",
+        epilog=EXAMPLES["pyversions"],
+        formatter_class=RAW,
         help="audit .python-version files, venv interpreters and uv Pythons",
     )
     py.add_argument(
@@ -34,7 +93,10 @@ def main() -> None:
     )
 
     sp = sub.add_parser(
-        "space", help="show where disk space goes and what is easy to reclaim"
+        "space",
+        epilog=EXAMPLES["space"],
+        formatter_class=RAW,
+        help="show where disk space goes and what is easy to reclaim",
     )
     sp.add_argument(
         "--root",
@@ -44,6 +106,8 @@ def main() -> None:
 
     pr = sub.add_parser(
         "projects",
+        epilog=EXAMPLES["projects"],
+        formatter_class=RAW,
         help="classify projects, flag stale ones, audit dependencies, archive",
     )
     pr.add_argument(
@@ -58,17 +122,22 @@ def main() -> None:
     )
     pr.add_argument(
         "--archive",
-        action="store_true",
-        help="create tar.gz for projects marked 'archive' (originals are kept)",
+        nargs="*",
+        metavar="PATH",
+        help="create tar.gz for projects marked 'archive' (originals are kept);"
+        " with PATHs, archive just those projects, whatever their status",
     )
     pr.add_argument(
         "--apply",
         action="store_true",
-        help="remove the .venv of 'idea' and 'archive' projects",
+        help="remove the .venv of 'idea' and 'archive' projects (with --archive PATH: of those)",
     )
 
     rp = sub.add_parser(
-        "repos", help="git repos with uncommitted changes or unpushed commits"
+        "repos",
+        epilog=EXAMPLES["repos"],
+        formatter_class=RAW,
+        help="git repos with uncommitted changes or unpushed commits",
     )
     rp.add_argument(
         "--root",
@@ -85,7 +154,10 @@ def main() -> None:
     )
 
     clean = sub.add_parser(
-        "cleanup", help="prune the uv cache and delete old logs (dry run by default)"
+        "cleanup",
+        epilog=EXAMPLES["cleanup"],
+        formatter_class=RAW,
+        help="prune the uv cache and delete old logs (dry run by default)",
     )
     clean.add_argument(
         "--apply", action="store_true", help="actually delete; default is a dry run"
@@ -117,10 +189,12 @@ def main() -> None:
         info = pyversions.audit(args.root or pyversions.DEFAULT_ROOTS, args.target)
         pyversions.show(info)
         print(f"\nSaved to {save(info, 'pyversions.json')}")
+    elif args.command == "projects" and args.archive:
+        projects.archive_paths(args.archive, remove_venvs=args.apply)
     elif args.command == "projects":
         info = projects.survey(args.root, audit=args.audit)
         projects.show(info)
-        if args.archive:
+        if args.archive is not None:  # bare --archive: everything marked "archive"
             print()
             projects.archive_pending(info)
         if args.apply:

@@ -316,19 +316,25 @@ def survey(roots: list[str] | None, audit: bool) -> dict:
     }
 
 
+def remove_venv(project: Path, running_pids: list[int], size: int | None) -> None:
+    """Delete project/.venv, never one a process runs from or something that is not a venv."""
+    venv = project / ".venv"
+    if not venv.exists():
+        return
+    if running_pids:
+        print(f"skip {venv}: in use by pids {running_pids}")
+    elif not (venv / "pyvenv.cfg").exists() or venv.is_symlink():
+        print(f"skip {venv}: does not look like a venv")
+    else:
+        subprocess.run(["rm", "-rf", "--", str(venv)], check=True)
+        print(f"removed {venv} ({human(size or 0)})")
+
+
 def apply_venv_removal(info: dict) -> None:
-    """Delete .venv of idea/archive projects (never one a process runs from)."""
+    """Delete .venv of idea/archive projects."""
     for row in info["projects"]:
-        venv = Path(row["project"]) / ".venv"
-        if row["status"] not in ("idea", "archive") or not venv.exists():
-            continue
-        if row["running_pids"]:
-            print(f"skip {venv}: in use by pids {row['running_pids']}")
-        elif not (venv / "pyvenv.cfg").exists() or venv.is_symlink():
-            print(f"skip {venv}: does not look like a venv")
-        else:
-            subprocess.run(["rm", "-rf", "--", str(venv)], check=True)
-            print(f"removed {venv} ({human(row['venv_bytes'] or 0)})")
+        if row["status"] in ("idea", "archive"):
+            remove_venv(Path(row["project"]), row["running_pids"], row["venv_bytes"])
 
 
 def archive_pending(info: dict) -> None:
@@ -344,6 +350,37 @@ def archive_pending(info: dict) -> None:
         print(
             f"archived {project} -> {dest} ({human(dest.stat().st_size)}); original left in place"
         )
+
+
+def archive_paths(paths: list[str], remove_venvs: bool) -> None:
+    """Archive the given project directories directly, whatever their status in projects.toml."""
+    archive_dir = load_registry(socket.gethostname())["archive_dir"]
+    for raw in paths:
+        project = Path(raw).expanduser().resolve()
+        if not project.is_dir():
+            print(f"FAILED {raw}: not a directory")
+            continue
+        today = archive_dir / f"{archive_slug(project)}-{datetime.now():%Y%m%d}.tar.gz"
+        if today.exists():
+            print(f"skip {project}: {today} already exists")
+        else:
+            earlier = existing_archives(project, archive_dir)
+            if earlier:
+                print(
+                    f"note: {project} already has {', '.join(a.name for a in earlier)}"
+                )
+            try:
+                dest = create_archive(project, archive_dir)
+            except (OSError, tarfile.TarError) as exc:
+                print(f"FAILED {project}: {exc}")
+                continue
+            print(
+                f"archived {project} -> {dest} ({human(dest.stat().st_size)}); original left in place"
+            )
+        if remove_venvs:
+            venv = project / ".venv"
+            running = processes_in({project: venv.resolve()}).get(project, [])
+            remove_venv(project, running, dir_size(venv))
 
 
 def show(info: dict) -> None:
