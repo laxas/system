@@ -1,6 +1,6 @@
 import argparse
 
-from system import postgres, projects, pyversions, space
+from system import postgres, projects, pyversions, repos, space
 from system.cleanup import cleanup
 from system.collect import collect, save
 
@@ -67,6 +67,17 @@ def main() -> None:
         help="remove the .venv of 'idea' and 'archive' projects",
     )
 
+    rp = sub.add_parser(
+        "repos", help="git repos with uncommitted changes or unpushed commits"
+    )
+    rp.add_argument(
+        "--root",
+        action="append",
+        help="directory whose subdirectories to scan (repeatable; default: /srv/python and ~/python)",
+    )
+    rp.add_argument("--files", action="store_true", help="list the changed files")
+    rp.add_argument("--all", action="store_true", help="also list clean repos")
+
     clean = sub.add_parser(
         "cleanup", help="prune the uv cache and delete old logs (dry run by default)"
     )
@@ -110,6 +121,10 @@ def main() -> None:
             print()
             projects.apply_venv_removal(info)
         print(f"\nSaved to {save(info, 'projects.json')}")
+    elif args.command == "repos":
+        info = repos.survey(args.root or pyversions.DEFAULT_ROOTS)
+        repos.show(info, files=args.files, show_all=args.all)
+        print(f"\nSaved to {save(info, 'repos.json')}")
     elif args.command == "space":
         info = space.survey(args.root or pyversions.DEFAULT_ROOTS)
         space.show(info)
