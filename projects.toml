@@ -20,3 +20,10 @@ archive_dir = "~/archive"        # keep this outside Nextcloud
 "/srv/insyrt/homepage" = "active"
 "~/python/seniorenbeirat" = "archive"
 "~/python/recorder" = "archive"
+
+[hosts.meran]
+roots = ["/srv/python", "~/python"]
+archive_dir = "~/archive"        # keep this outside Nextcloud
+
+[hosts.meran.projects]
+"~/python/logs.alt" = "archive"
