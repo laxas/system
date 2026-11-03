@@ -11,6 +11,7 @@ import subprocess
 import tomllib
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 DEFAULT_ROOTS = ["/srv/python", "~/python"]
 DEFAULT_TARGET = "3.14"
@@ -131,7 +132,7 @@ def audit(roots: list[str], target: str) -> dict:
     projects = find_projects(roots)
     running = processes_in({p: (p / ".venv").resolve() for p in projects})
 
-    rows = []
+    rows: list[dict[str, Any]] = []
     for project in projects:
         file = project / ".python-version"
         pinned = file.read_text().strip() if file.exists() else None

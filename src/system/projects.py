@@ -22,6 +22,7 @@ import time
 import tomllib
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from system.collect import REPO_ROOT
 from system.pyversions import DEFAULT_ROOTS, find_projects, processes_in, version_key
@@ -247,7 +248,7 @@ def create_archive(project: Path, archive_dir: Path) -> Path:
             members = tar.getmembers()
             for m in members:
                 if m.isfile():
-                    tar.extractfile(m).read()
+                    tar.extractfile(m).read()  # ty: ignore[unresolved-attribute]
     except OSError, tarfile.TarError:
         part.unlink(missing_ok=True)
         raise
@@ -268,7 +269,7 @@ def survey(roots: list[str] | None, audit: bool) -> dict:
     rows = []
     for project in found:
         status = reg["projects"].get(str(project))
-        row = {
+        row: dict[str, Any] = {
             "project": str(project),
             "status": status or "unclassified",
             **signals(project),

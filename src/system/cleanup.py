@@ -157,7 +157,7 @@ def cleanup(
     logs: bool = True,
     snap: bool = True,
 ) -> None:
-    sys.stdout.reconfigure(
+    sys.stdout.reconfigure(  # ty: ignore[unresolved-attribute]
         line_buffering=True
     )  # keep our output ordered with subprocess output
     if not apply:
