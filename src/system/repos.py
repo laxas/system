@@ -336,3 +336,104 @@ def push(info: dict, apply: bool = False) -> bool:
     else:
         print(f"\nPushed {len(ready)} repo(s).")
     return not failed
+
+
+FETCH_TIMEOUT = (
+    60  # seconds per repo; an unreachable remote must not stall the whole run
+)
+
+
+def fetch(repo: str) -> str | None:
+    """git fetch the upstream's remote without prompting. Returns an error message, or None."""
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    try:
+        result = subprocess.run(
+            ["git", "-C", repo, "fetch", "--quiet"],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=FETCH_TIMEOUT,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return f"fetch timed out after {FETCH_TIMEOUT}s"
+    if result.returncode != 0:
+        lines = result.stderr.strip().splitlines()
+        return "fetch failed: " + (lines[-1] if lines else f"exit {result.returncode}")
+    return None
+
+
+def pull_verdict(r: dict) -> str | None:
+    """Why a repo that is behind must not be pulled automatically, or None if it can fast-forward."""
+    if r["dirty"]:
+        open_ = ", ".join(
+            f"{len(r[k])} {k}"
+            for k in ("conflicts", "staged", "modified", "untracked")
+            if r[k]
+        )
+        return f"has uncommitted changes ({open_}); commit or stash first"
+    if r["ahead"]:
+        return f"diverged: {r['ahead']} local and {r['behind']} remote commit(s); merge or rebase by hand"
+    return None
+
+
+def pull(info: dict, apply: bool = False) -> bool:
+    """Fast-forward repos that are behind their upstream and have nothing open locally.
+
+    Fetches every repo with an upstream first, so "behind" is current. Never merges, rebases,
+    stashes or forces: anything other than a clean fast-forward is reported and left alone.
+    Dry run unless apply. Returns False if a fetch or pull failed.
+    """
+    color = use_color()
+    progress = sys.stderr.isatty()
+    pullable, blocked, failed, current = [], [], [], 0
+    for r in info["repos"]:
+        if "error" in r or r["upstream"] is None:
+            continue
+        if progress:
+            print(f"fetch {r['repo']}", end="\r", flush=True, file=sys.stderr)
+        error = fetch(r["repo"])
+        if progress:
+            print(" " * (len(r["repo"]) + 6), end="\r", file=sys.stderr)
+        if error:
+            failed.append((r, error))
+            continue
+        r = repo_status(Path(r["repo"]))
+        if "error" in r or not r["behind"]:
+            current += 1
+            continue
+        reason = pull_verdict(r)
+        (blocked.append((r, reason)) if reason else pullable.append(r))
+
+    for r, reason in blocked:
+        print(
+            f"leave  {paint(r['repo'], 'repo', color)}  {r['behind']} behind  {paint(reason, 'modified', color)}"
+        )
+    for r, error in failed:
+        print(
+            f"error  {paint(r['repo'], 'repo', color)}  {paint(error, 'error', color)}"
+        )
+    pull_failed = []
+    for r in pullable:
+        target = f"{r['behind']} commit(s) from {r['upstream']} [{r['branch']}]"
+        if not apply:
+            print(f"would pull  {paint(r['repo'], 'repo', color)}  {target}")
+            continue
+        print(f"pull   {paint(r['repo'], 'repo', color)}  {target}", flush=True)
+        result = subprocess.run(
+            ["git", "-C", r["repo"], "pull", "--ff-only", "--quiet"], check=False
+        )
+        if result.returncode != 0:
+            pull_failed.append(r["repo"])
+
+    print(
+        f"\n{current} up to date, {len(pullable)} {'pulled' if apply else 'can fast-forward'},"
+        f" {len(blocked)} left alone, {len(failed) + len(pull_failed)} failed"
+    )
+    if pullable and not apply:
+        print(
+            "Dry run (remotes were fetched, working trees untouched). Add --apply to pull."
+        )
+    if pull_failed:
+        print(paint("pull failed: " + ", ".join(pull_failed), "error", color))
+    return not failed and not pull_failed

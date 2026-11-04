@@ -48,6 +48,8 @@ examples:
   system repos --root /srv/python            only one root
   system repos --push                        dry run: which repos have commits to push
   system repos --push --apply                git push those repos (current branch only)
+  system repos --pull                        fetch all, show which clean repos can fast-forward
+  system repos --pull --apply                git pull --ff-only those; dirty/diverged are reported
   NO_COLOR=1 system repos                    no colors""",
     "cleanup": """\
 examples:
@@ -159,7 +161,15 @@ def main() -> None:
         action="store_true",
         help="push repos with unpushed commits (skips no-upstream and diverged); dry run without --apply",
     )
-    rp.add_argument("--apply", action="store_true", help="with --push: actually push")
+    rp.add_argument(
+        "--pull",
+        action="store_true",
+        help="fetch, then fast-forward clean repos that are behind; dirty or diverged repos"
+        " are reported, never merged or forced; dry run without --apply",
+    )
+    rp.add_argument(
+        "--apply", action="store_true", help="with --push/--pull: actually push/pull"
+    )
 
     clean = sub.add_parser(
         "cleanup",
@@ -211,8 +221,14 @@ def main() -> None:
         print(f"\nSaved to {save(info, 'projects.json')}")
     elif args.command == "repos":
         info = repos.survey(args.root or pyversions.DEFAULT_ROOTS)
-        if args.apply and not args.push:
-            rp.error("--apply only works together with --push")
+        if args.push and args.pull:
+            rp.error("use --push and --pull separately")
+        if args.apply and not (args.push or args.pull):
+            rp.error("--apply only works together with --push or --pull")
+        if args.pull:
+            if not repos.pull(info, apply=args.apply):
+                raise SystemExit(1)
+            return
         if args.push:
             if not repos.push(info, apply=args.apply):
                 raise SystemExit(1)

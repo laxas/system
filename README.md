@@ -32,11 +32,13 @@ Shows installed PostgreSQL server versions, the clusters from `pg_lsclusters` wi
 
 `projects` reads `projects.toml` (one section per host, keyed by project path) with the statuses `active`, `grey`, `idea` and `archive`. Audits follow the classification, not the `.venv`: `active` and `grey` projects are always audited, unclassified ones when they have a `.venv`. Archives go to the host's `archive_dir` (default `~/archive`, keep it outside Nextcloud) as `.tar.gz` with a `.sha256`, including `.git` but not venvs. Screening only reports; fixing audit findings (upgrading dependencies) is done per project in a separate session.
 
-    make repos           # or: .venv/bin/system repos [--root DIR]... [--files] [--all] [--sort path|commit|changed] [--push [--apply]]
+    make repos           # or: .venv/bin/system repos [--root DIR]... [--files] [--all] [--sort path|commit|changed] [--push|--pull [--apply]]
 
 `repos` lists the git repositories directly under the project roots (any language) that have uncommitted changes (staged, modified, untracked, conflicts) or unpushed commits, or that have no remote or upstream. Each line also names the dependency tools the repo uses (from lock/manifest files and `pyproject.toml`: uv, poetry, pdm, pipenv, pip, hatch, setuptools, npm, composer). Output is colored for light terminal themes when it goes to a terminal; set `NO_COLOR` to turn that off. Two dates per repo: `commit` is the last commit, `changed` the newest file in the working tree (tracked or untracked; ignored files and `.python-version` do not count, and a fresh clone looks recently changed because checkout sets file times). `--sort commit` or `--sort changed` lists the oldest first. `--files` shows the changed paths, `--all` includes clean repos. It only runs `git status` (no fetch), so "behind" is as of the last fetch. Saved to `reports/<hostname>/repos.json`.
 
 `repos --push` lists the repos whose current branch has unpushed commits; `--push --apply` runs `git push` in each. Only committed work is pushed (uncommitted changes stay local and are flagged). Repos without an upstream, or that are also behind their upstream (diverged, push would be rejected), are skipped with the reason. Exits non-zero if any push fails.
+
+`repos --pull` first runs `git fetch` in every repo with an upstream (no prompts, 60 s timeout each), then lists the repos that are behind. Only repos with nothing open (no staged, modified, untracked or conflicting files and no unpushed commits) are pulled, and only with `git pull --ff-only` under `--apply`. Dirty or diverged repos are reported with the reason and left alone; nothing is merged, rebased, stashed or forced. The dry run updates remote-tracking refs but not working trees.
 
 ## Claude Code skill
 
