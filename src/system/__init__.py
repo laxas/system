@@ -42,9 +42,10 @@ examples:
 Archives leave out .venv, node_modules and __pycache__. Deleting the original is up to you.""",
     "repos": """\
 examples:
-  system repos                               repos with uncommitted/unpushed work or no remote
+  system repos                               all repos; clean ones in green
+  system repos --open                        only repos with uncommitted/unpushed work or no remote
   system repos --files                       plus the changed paths (S staged, M modified, ? untracked)
-  system repos --all --sort commit           every repo, oldest last commit first
+  system repos --sort commit                 oldest last commit first
   system repos --root /srv/python            only one root
   system repos --push                        dry run: which repos have commits to push
   system repos --push --apply                git push those repos (current branch only)
@@ -149,7 +150,11 @@ def main() -> None:
         help="directory whose subdirectories to scan (repeatable; default: /srv/python and ~/python)",
     )
     rp.add_argument("--files", action="store_true", help="list the changed files")
-    rp.add_argument("--all", action="store_true", help="also list clean repos")
+    rp.add_argument(
+        "--open",
+        action="store_true",
+        help="only repos with uncommitted/unpushed work or no remote/upstream (hide clean ones)",
+    )
     rp.add_argument(
         "--sort",
         choices=repos.SORT_KEYS,
@@ -233,7 +238,7 @@ def main() -> None:
             if not repos.push(info, apply=args.apply):
                 raise SystemExit(1)
             return
-        repos.show(info, files=args.files, show_all=args.all, sort=args.sort)
+        repos.show(info, files=args.files, only_open=args.open, sort=args.sort)
         print(f"\nSaved to {save(info, 'repos.json')}")
     elif args.command == "space":
         info = space.survey(args.root or pyversions.DEFAULT_ROOTS)

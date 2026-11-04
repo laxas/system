@@ -228,11 +228,11 @@ def day(value: str | None) -> str:
 
 
 def show(
-    info: dict, files: bool = False, show_all: bool = False, sort: str = "path"
+    info: dict, files: bool = False, only_open: bool = False, sort: str = "path"
 ) -> None:
     color = use_color()
     repos = info["repos"]
-    listed = [r for r in repos if show_all or needs_attention(r)]
+    listed = [r for r in repos if not only_open or needs_attention(r)]
     if sort != "path":  # oldest first, so stale repos come to the top
         field = "last_commit" if sort == "commit" else "last_changed"
         listed.sort(key=lambda r: r.get(field) or "")
@@ -249,7 +249,8 @@ def show(
         )
     )
     for r in listed:
-        name = paint(f"{r['repo']:<{width}}", "repo", color)
+        clean = "error" not in r and not needs_attention(r)
+        name = paint(f"{r['repo']:<{width}}", "clean" if clean else "repo", color)
         if "error" in r:
             print(f"{name}  {paint('ERROR: ' + r['error'], 'error', color)}")
             continue
@@ -271,9 +272,11 @@ def show(
                 for path in r[k]:
                     print(f"{'':<{width}}    {paint(mark, k, color)} {path}")
     dirty = sum(1 for r in repos if r.get("dirty"))
+    clean = sum(1 for r in repos if "error" not in r and not needs_attention(r))
     unpushed = sum(1 for r in repos if r.get("ahead"))
     print(
-        f"\n{len(repos)} repos: {dirty} with uncommitted changes, {unpushed} with unpushed commits"
+        f"\n{len(repos)} repos: {clean} clean, {dirty} with uncommitted changes,"
+        f" {unpushed} with unpushed commits"
     )
 
 
