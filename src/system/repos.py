@@ -275,3 +275,64 @@ def show(
     print(
         f"\n{len(repos)} repos: {dirty} with uncommitted changes, {unpushed} with unpushed commits"
     )
+
+
+def push_candidates(info: dict) -> tuple[list[dict], list[tuple[dict, str]]]:
+    """Repos whose current branch has commits to push, and those skipped with a reason.
+
+    Uncommitted changes do not block a push (only commits are sent). A branch that is also behind
+    its upstream is skipped: the push would be rejected and needs a pull/rebase first.
+    """
+    ready, skipped = [], []
+    for r in info["repos"]:
+        if "error" in r or not r["ahead"]:
+            continue
+        if r["upstream"] is None:
+            skipped.append((r, "no upstream"))
+        elif r["behind"]:
+            skipped.append((r, f"diverged: {r['behind']} behind {r['upstream']}"))
+        else:
+            ready.append(r)
+    return ready, skipped
+
+
+def push(info: dict, apply: bool = False) -> bool:
+    """Push the current branch of every repo with unpushed commits. Dry run unless apply.
+
+    Returns False if any push failed. git runs attached to the terminal, so SSH passphrase or
+    credential prompts still work.
+    """
+    color = use_color()
+    ready, skipped = push_candidates(info)
+    for r, reason in skipped:
+        print(
+            f"skip  {paint(r['repo'], 'repo', color)}  {paint(reason, 'modified', color)}"
+        )
+    if not ready:
+        print("Nothing to push.")
+        return True
+    failed = []
+    for r in ready:
+        target = f"{r['ahead']} commit(s) [{r['branch']}] -> {r['upstream']}"
+        note = (
+            paint("  (has uncommitted changes, not pushed)", "untracked", color)
+            if r["dirty"]
+            else ""
+        )
+        if not apply:
+            print(f"would push  {paint(r['repo'], 'repo', color)}  {target}{note}")
+            continue
+        print(f"push  {paint(r['repo'], 'repo', color)}  {target}{note}", flush=True)
+        if subprocess.run(["git", "-C", r["repo"], "push"]).returncode != 0:
+            failed.append(r["repo"])
+    if not apply:
+        print(f"\nDry run: {len(ready)} repo(s) would be pushed. Add --apply to push.")
+    elif failed:
+        print(
+            paint(
+                f"\n{len(failed)} push(es) failed: " + ", ".join(failed), "error", color
+            )
+        )
+    else:
+        print(f"\nPushed {len(ready)} repo(s).")
+    return not failed

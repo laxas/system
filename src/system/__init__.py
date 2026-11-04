@@ -46,6 +46,8 @@ examples:
   system repos --files                       plus the changed paths (S staged, M modified, ? untracked)
   system repos --all --sort commit           every repo, oldest last commit first
   system repos --root /srv/python            only one root
+  system repos --push                        dry run: which repos have commits to push
+  system repos --push --apply                git push those repos (current branch only)
   NO_COLOR=1 system repos                    no colors""",
     "cleanup": """\
 examples:
@@ -152,6 +154,12 @@ def main() -> None:
         default="path",
         help="order by path, or oldest first by last commit / last changed file",
     )
+    rp.add_argument(
+        "--push",
+        action="store_true",
+        help="push repos with unpushed commits (skips no-upstream and diverged); dry run without --apply",
+    )
+    rp.add_argument("--apply", action="store_true", help="with --push: actually push")
 
     clean = sub.add_parser(
         "cleanup",
@@ -203,6 +211,12 @@ def main() -> None:
         print(f"\nSaved to {save(info, 'projects.json')}")
     elif args.command == "repos":
         info = repos.survey(args.root or pyversions.DEFAULT_ROOTS)
+        if args.apply and not args.push:
+            rp.error("--apply only works together with --push")
+        if args.push:
+            if not repos.push(info, apply=args.apply):
+                raise SystemExit(1)
+            return
         repos.show(info, files=args.files, show_all=args.all, sort=args.sort)
         print(f"\nSaved to {save(info, 'repos.json')}")
     elif args.command == "space":
