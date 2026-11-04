@@ -2,7 +2,7 @@
 # which would block `uv cache prune` inside the cleanup.
 SYSTEM := .venv/bin/system
 
-.PHONY: collect cleanup postgres pyversions space projects audit repos
+.PHONY: collect cleanup postgres pyversions space projects audit repos push
 
 collect:
 	$(SYSTEM) collect
@@ -27,3 +27,8 @@ audit:
 
 repos:
 	$(SYSTEM) repos
+
+# origin (GitLab, the default for `git push`) and the GitHub mirror.
+push:
+	git push origin main
+	git push github main

@@ -43,3 +43,7 @@ Shows installed PostgreSQL server versions, the clusters from `pg_lsclusters` wi
 ## Claude Code skill
 
 `.claude/skills/systemcheck/` is a Claude Code skill: ask for a "system check" and it runs `collect`, `pyversions`, `space` (and `postgres` where installed), diffs the reports against the last commit and summarizes what needs attention. It is read-only; it never cleans up or deletes anything on its own.
+
+## Remotes
+
+`origin` is GitLab (`git@gitlab.lrz.de:isb/system.git`) and is what a plain `git push` goes to. `github` (`git@github.com:laxas/system.git`) is a mirror. `make push` pushes `main` to both.
