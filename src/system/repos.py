@@ -9,6 +9,7 @@ import socket
 import subprocess
 import sys
 import tomllib
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
@@ -182,17 +183,64 @@ def repo_status(repo: Path) -> dict:
     return info
 
 
-def survey(roots: list[str]) -> dict:
+def audit_verdict(repo: str) -> dict:
+    """uv audit of a repo's uv.lock, reduced to the verdict: clean, vulnerable (with count),
+    skipped (no uv.lock) or error. Details are in `system projects --audit`."""
+    from system.projects import audit_project  # projects pulls in more than repos needs
+
+    result = audit_project(Path(repo))
+    verdict = {"status": result["status"]}
+    if "vulnerabilities" in result:
+        verdict["vulnerabilities"] = result["vulnerabilities"]
+    if "reason" in result:
+        verdict["reason"] = result["reason"]
+    return verdict
+
+
+AUDIT_WORKERS = 8
+
+
+def survey(roots: list[str], audit: bool = False) -> dict:
+    repos = [repo_status(r) for r in find_repos(roots)]
+    if audit:
+        ok = [r for r in repos if "error" not in r]
+        with ThreadPoolExecutor(AUDIT_WORKERS) as pool:
+            for r, verdict in zip(ok, pool.map(audit_verdict, [r["repo"] for r in ok])):
+                r["audit"] = verdict
     return {
         "hostname": socket.gethostname(),
         "collected_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "roots": roots,
-        "repos": [repo_status(r) for r in find_repos(roots)],
+        "audited": audit,
+        "repos": repos,
     }
+
+
+def audit_label(r: dict) -> tuple[str, str]:
+    """(text, color key) for the audit column."""
+    a = r.get("audit") or {"status": "skipped"}
+    if a["status"] == "clean":
+        return "ok", "clean"
+    if a["status"] == "vulnerable":
+        n = a["vulnerabilities"]
+        return f"{n} vuln{'s' if n != 1 else ''}", "error"
+    if a["status"] == "error":
+        return "failed", "error"
+    return "-", "tool"
 
 
 def needs_attention(r: dict) -> bool:
     return "error" in r or r["dirty"] or r["ahead"] > 0 or r["upstream"] is None
+
+
+def is_green(r: dict) -> bool:
+    """Nothing open in git, and the uv audit (if it ran) found no problem.
+
+    Repos the audit could not check (no uv.lock) are judged on git alone.
+    """
+    if "error" in r or needs_attention(r):
+        return False
+    return (r.get("audit") or {}).get("status") not in ("vulnerable", "error")
 
 
 def use_color() -> bool:
@@ -203,7 +251,7 @@ def paint(text: str, key: str, color: bool) -> str:
     return f"\033[{COLORS[key]}m{text}\033[0m" if color else text
 
 
-def summary(r: dict, color: bool = False) -> str:
+def summary(r: dict, color: bool = False, green: bool = True) -> str:
     parts = [
         paint(f"{len(r[k])} {k}", k, color)
         for k in ("conflicts", "staged", "modified", "untracked")
@@ -217,7 +265,7 @@ def summary(r: dict, color: bool = False) -> str:
         parts.append(paint("no remote", "no remote", color))
     elif r["upstream"] is None:
         parts.append(paint("no upstream", "no upstream", color))
-    return ", ".join(parts) or paint("clean", "clean", color)
+    return ", ".join(parts) or (paint("clean", "clean", color) if green else "clean")
 
 
 SORT_KEYS = ("path", "commit", "changed")
@@ -240,17 +288,21 @@ def show(
     tools_of = {r["repo"]: "+".join(r.get("tools") or ["-"]) for r in listed}
     tool_width = max((len(t) for t in tools_of.values()), default=1)
     branch_width = max((len(r.get("branch") or "") for r in listed), default=1) + 2
+    audited = info.get("audited", False)
+    labels = {r["repo"]: audit_label(r) for r in listed} if audited else {}
+    audit_width = max((len(t) for t, _ in labels.values()), default=5)
+    audit_head = f"{'audit':<{audit_width}}  " if audited else ""
     print(
         paint(
             f"{'repo':<{width}}  {'tools':<{tool_width}}  {'branch':<{branch_width}}"
-            f" {'commit':<10}  {'changed':<10}  status",
+            f" {'commit':<10}  {'changed':<10}  {audit_head}status",
             "branch",
             color,
         )
     )
     for r in listed:
-        clean = "error" not in r and not needs_attention(r)
-        name = paint(f"{r['repo']:<{width}}", "clean" if clean else "repo", color)
+        green = is_green(r)
+        name = paint(f"{r['repo']:<{width}}", "clean" if green else "repo", color)
         if "error" in r:
             print(f"{name}  {paint('ERROR: ' + r['error'], 'error', color)}")
             continue
@@ -261,7 +313,11 @@ def show(
         dates = paint(
             f"{day(r['last_commit']):<10}  {day(r['last_changed']):<10}", "date", color
         )
-        print(f"{name}  {tools}  {branch} {dates}  {summary(r, color)}")
+        audit = ""
+        if audited:
+            text, key = labels[r["repo"]]
+            audit = paint(f"{text:<{audit_width}}", key, color) + "  "
+        print(f"{name}  {tools}  {branch} {dates}  {audit}{summary(r, color, green)}")
         if files:
             for k, mark in (
                 ("conflicts", "U"),
@@ -272,12 +328,18 @@ def show(
                 for path in r[k]:
                     print(f"{'':<{width}}    {paint(mark, k, color)} {path}")
     dirty = sum(1 for r in repos if r.get("dirty"))
-    clean = sum(1 for r in repos if "error" not in r and not needs_attention(r))
+    green = sum(1 for r in repos if is_green(r))
     unpushed = sum(1 for r in repos if r.get("ahead"))
-    print(
-        f"\n{len(repos)} repos: {clean} clean, {dirty} with uncommitted changes,"
+    line = (
+        f"\n{len(repos)} repos: {green} clean, {dirty} with uncommitted changes,"
         f" {unpushed} with unpushed commits"
     )
+    if info.get("audited"):
+        vulnerable = sum(
+            1 for r in repos if (r.get("audit") or {}).get("status") == "vulnerable"
+        )
+        line += f", {vulnerable} with vulnerabilities"
+    print(line)
 
 
 def push_candidates(info: dict) -> tuple[list[dict], list[tuple[dict, str]]]:

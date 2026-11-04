@@ -46,6 +46,7 @@ examples:
   system repos --open                        only repos with uncommitted/unpushed work or no remote
   system repos --files                       plus the changed paths (S staged, M modified, ? untracked)
   system repos --sort commit                 oldest last commit first
+  system repos --audit                       plus a uv audit verdict per repo (needs network)
   system repos --root /srv/python            only one root
   system repos --push                        dry run: which repos have commits to push
   system repos --push --apply                git push those repos (current branch only)
@@ -151,6 +152,11 @@ def main() -> None:
     )
     rp.add_argument("--files", action="store_true", help="list the changed files")
     rp.add_argument(
+        "--audit",
+        action="store_true",
+        help="add a uv audit column (ok / N vulns; details: system projects --audit)",
+    )
+    rp.add_argument(
         "--open",
         action="store_true",
         help="only repos with uncommitted/unpushed work or no remote/upstream (hide clean ones)",
@@ -225,7 +231,7 @@ def main() -> None:
             projects.apply_venv_removal(info)
         print(f"\nSaved to {save(info, 'projects.json')}")
     elif args.command == "repos":
-        info = repos.survey(args.root or pyversions.DEFAULT_ROOTS)
+        info = repos.survey(args.root or pyversions.DEFAULT_ROOTS, audit=args.audit)
         if args.push and args.pull:
             rp.error("use --push and --pull separately")
         if args.apply and not (args.push or args.pull):
