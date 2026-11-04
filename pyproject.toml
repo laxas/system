@@ -7,7 +7,9 @@ authors = [
     { name = "Alexander Crössmann", email = "alexander.croessmann@schirmer-kommunikation.de" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "pyyaml>=6.0.3",
+]
 
 [project.scripts]
 system = "system:main"

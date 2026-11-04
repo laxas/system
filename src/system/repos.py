@@ -13,6 +13,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
+import yaml
+
 # Marker file -> dependency/packaging tool, in display order.
 TOOL_MARKERS = (
     ("uv.lock", "uv"),
@@ -36,6 +38,8 @@ COLORS = {
     "no remote": "1;31",
     "no upstream": "35",
     "clean": "32",
+    "ci": "31",
+    "pipeline": "34",
     "error": "1;31",
     "branch": "90",
     "tool": "90",
@@ -91,6 +95,91 @@ def parse_status(output: str) -> dict:
         elif line.startswith("? "):
             info["untracked"].append(line[2:])
     return info
+
+
+def detect_ci(repo: Path) -> list[str]:
+    """CI/CD systems with a pipeline definition in the repo."""
+    found = []
+    if (repo / ".gitlab-ci.yml").is_file():
+        found.append("gitlab")
+    workflows = repo / ".github" / "workflows"
+    if workflows.is_dir() and any(
+        p.suffix in (".yml", ".yaml") for p in workflows.iterdir()
+    ):
+        found.append("github")
+    return found
+
+
+# GitLab security scanning every .gitlab-ci.yml must set up. The reference config:
+#
+#   stages: [test, secret-detection]
+#   sast:
+#     stage: test
+#   include:
+#   - template: Security/SAST.gitlab-ci.yml
+#   - template: Security/Secret-Detection.gitlab-ci.yml
+#   variables:
+#     SECRET_DETECTION_ENABLED: 'true'
+#   secret_detection:
+#     stage: secret-detection
+CI_TEMPLATES = {
+    "SAST": "Security/SAST.gitlab-ci.yml",
+    "Secret-Detection": "Security/Secret-Detection.gitlab-ci.yml",
+}
+CI_JOB_STAGES = {"sast": "test", "secret_detection": "secret-detection"}
+CI_VARIABLES = {"SECRET_DETECTION_ENABLED": "true"}
+# Used by GitLab when a pipeline does not define `stages`.
+GITLAB_DEFAULT_STAGES = [".pre", "build", "test", "deploy", ".post"]
+
+
+class CILoader(yaml.SafeLoader):
+    """SafeLoader that accepts GitLab's custom tags (e.g. !reference) instead of failing."""
+
+
+CILoader.add_multi_constructor("!", lambda loader, suffix, node: None)
+
+
+def included_templates(include) -> set[str]:
+    """`template:` entries of a GitLab `include:` (a string, a mapping, or a list of those)."""
+    items = include if isinstance(include, list) else [include]
+    return {
+        str(item["template"])
+        for item in items
+        if isinstance(item, dict) and "template" in item
+    }
+
+
+def ci_security_gaps(repo: Path) -> list[str] | None:
+    """What .gitlab-ci.yml lacks of the required security scanning, or None if there is no such
+    file. An empty list means everything is in place."""
+    path = repo / ".gitlab-ci.yml"
+    try:
+        config = yaml.load(path.read_text(), Loader=CILoader)
+    except OSError:
+        return None
+    except yaml.YAMLError:
+        return ["valid YAML"]
+    if not isinstance(config, dict):
+        return ["valid YAML"]
+    gaps = []
+    templates = included_templates(config.get("include"))
+    gaps += [
+        f"{name} template" for name, t in CI_TEMPLATES.items() if t not in templates
+    ]
+    stages = config.get("stages")
+    stages = stages if isinstance(stages, list) else GITLAB_DEFAULT_STAGES
+    for job, stage in CI_JOB_STAGES.items():
+        if stage not in stages:
+            gaps.append(f"stage {stage}")
+        settings = config.get(job)
+        if not isinstance(settings, dict) or settings.get("stage") != stage:
+            gaps.append(f"{job}: stage {stage}")
+    variables = config.get("variables")
+    variables = variables if isinstance(variables, dict) else {}
+    for name, wanted in CI_VARIABLES.items():
+        if str(variables.get(name)).lower() != wanted:
+            gaps.append(f"{name}={wanted}")
+    return gaps
 
 
 def detect_tools(repo: Path) -> list[str]:
@@ -177,6 +266,8 @@ def repo_status(repo: Path) -> dict:
     info["last_commit"] = last_commit(repo)
     info["last_changed"], info["last_changed_file"] = last_changed_file(repo)
     info["has_remote"] = bool(git_out(repo, "remote").strip())
+    info["ci"] = detect_ci(repo)
+    info["ci_gaps"] = ci_security_gaps(repo)
     info["dirty"] = any(
         info[k] for k in ("staged", "modified", "untracked", "conflicts")
     )
@@ -230,7 +321,13 @@ def audit_label(r: dict) -> tuple[str, str]:
 
 
 def needs_attention(r: dict) -> bool:
-    return "error" in r or r["dirty"] or r["ahead"] > 0 or r["upstream"] is None
+    return (
+        "error" in r
+        or r["dirty"]
+        or r["ahead"] > 0
+        or r["upstream"] is None
+        or bool(r.get("ci_gaps"))
+    )
 
 
 def is_green(r: dict) -> bool:
@@ -251,6 +348,12 @@ def paint(text: str, key: str, color: bool) -> str:
     return f"\033[{COLORS[key]}m{text}\033[0m" if color else text
 
 
+def ci_gap_text(gaps: list[str]) -> str:
+    if all(f"{name} template" in gaps for name in CI_TEMPLATES):
+        return "CI lacks security scans"  # nothing set up; listing every piece is noise
+    return "CI lacks " + ", ".join(gaps)
+
+
 def summary(r: dict, color: bool = False, green: bool = True) -> str:
     parts = [
         paint(f"{len(r[k])} {k}", k, color)
@@ -265,6 +368,8 @@ def summary(r: dict, color: bool = False, green: bool = True) -> str:
         parts.append(paint("no remote", "no remote", color))
     elif r["upstream"] is None:
         parts.append(paint("no upstream", "no upstream", color))
+    if r.get("ci_gaps"):
+        parts.append(paint(ci_gap_text(r["ci_gaps"]), "ci", color))
     return ", ".join(parts) or (paint("clean", "clean", color) if green else "clean")
 
 
@@ -287,6 +392,8 @@ def show(
     width = max((len(r["repo"]) for r in listed), default=10)
     tools_of = {r["repo"]: "+".join(r.get("tools") or ["-"]) for r in listed}
     tool_width = max((len(t) for t in tools_of.values()), default=1)
+    ci_of = {r["repo"]: "+".join(r.get("ci") or ["-"]) for r in listed}
+    ci_width = max((len(t) for t in ci_of.values()), default=2)
     branch_width = max((len(r.get("branch") or "") for r in listed), default=1) + 2
     audited = info.get("audited", False)
     labels = {r["repo"]: audit_label(r) for r in listed} if audited else {}
@@ -294,7 +401,8 @@ def show(
     audit_head = f"{'audit':<{audit_width}}  " if audited else ""
     print(
         paint(
-            f"{'repo':<{width}}  {'tools':<{tool_width}}  {'branch':<{branch_width}}"
+            f"{'repo':<{width}}  {'tools':<{tool_width}}  {'ci':<{ci_width}}"
+            f"  {'branch':<{branch_width}}"
             f" {'commit':<10}  {'changed':<10}  {audit_head}status",
             "branch",
             color,
@@ -307,6 +415,10 @@ def show(
             print(f"{name}  {paint('ERROR: ' + r['error'], 'error', color)}")
             continue
         tools = paint(f"{tools_of[r['repo']]:<{tool_width}}", "tool", color)
+        ci_text = ci_of[r["repo"]]
+        ci = paint(
+            f"{ci_text:<{ci_width}}", "tool" if ci_text == "-" else "pipeline", color
+        )
         branch = paint(
             f"{'[' + str(r['branch']) + ']':<{branch_width}}", "branch", color
         )
@@ -317,7 +429,9 @@ def show(
         if audited:
             text, key = labels[r["repo"]]
             audit = paint(f"{text:<{audit_width}}", key, color) + "  "
-        print(f"{name}  {tools}  {branch} {dates}  {audit}{summary(r, color, green)}")
+        print(
+            f"{name}  {tools}  {ci}  {branch} {dates}  {audit}{summary(r, color, green)}"
+        )
         if files:
             for k, mark in (
                 ("conflicts", "U"),
